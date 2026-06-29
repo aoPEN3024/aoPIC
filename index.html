@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="工事写真">
+<title>工事写真撮影</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#0f1117;
+  --surface:#1a1d27;
+  --surface2:#242736;
+  --border:#2e3347;
+  --accent:#2e7d5e;
+  --accent2:#3da876;
+  --text:#e8eaf0;
+  --text2:#8b91a8;
+  --danger:#d9534f;
+  --board-green:#1a4a2e;
+  --radius:12px;
+  --font:'Hiragino Kaku Gothic ProN','Hiragino Sans',sans-serif;
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--font)}
+#app{display:flex;flex-direction:column;height:100dvh;height:100vh}
+
+/* ── TABS ── */
+#tabs{display:flex;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
+.tab{flex:1;padding:14px 8px;text-align:center;font-size:12px;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;transition:.2s}
+.tab.active{color:var(--accent2);border-bottom-color:var(--accent2)}
+.tab-icon{font-size:18px;display:block;margin-bottom:2px}
+
+/* ── SCREENS ── */
+.screen{display:none;flex:1;overflow:hidden;flex-direction:column}
+.screen.active{display:flex}
+
+/* ── CAMERA SCREEN ── */
+#camScreen{position:relative;background:#000}
+#videoWrap{position:relative;flex:1;overflow:hidden;display:flex;align-items:center;justify-content:center}
+#video{width:100%;height:100%;object-fit:cover}
+#canvas{display:none}
+#boardOverlay{
+  position:absolute;
+  background:var(--board-green);
+  border:3px solid #8fbc8f;
+  border-radius:4px;
+  padding:8px 10px;
+  cursor:grab;
+  user-select:none;
+  touch-action:none;
+  min-width:180px;
+  max-width:70%;
+  box-shadow:0 2px 12px rgba(0,0,0,.6);
+  bottom:80px;left:12px;
+}
+#boardOverlay.dragging{cursor:grabbing;box-shadow:0 8px 24px rgba(0,0,0,.8)}
+.board-title{font-size:9px;color:#aed9b8;letter-spacing:.1em;margin-bottom:4px;font-weight:600}
+.board-row{display:flex;gap:4px;margin-bottom:3px;align-items:flex-start}
+.board-label{font-size:9px;color:#8fbc8f;white-space:nowrap;padding-top:1px;min-width:42px}
+.board-val{font-size:11px;color:#fff;font-weight:600;word-break:break-all;line-height:1.3}
+.board-divider{border:none;border-top:1px solid #4a7a5a;margin:4px 0}
+
+#camControls{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 20px;background:rgba(0,0,0,.85);flex-shrink:0
+}
+#shotBtn{
+  width:70px;height:70px;border-radius:50%;
+  border:4px solid #fff;background:rgba(255,255,255,.15);
+  display:flex;align-items:center;justify-content:center;
+  font-size:28px;cursor:pointer;transition:.15s;
+  flex-shrink:0
+}
+#shotBtn:active{transform:scale(.9);background:rgba(255,255,255,.3)}
+.cam-side{width:60px;display:flex;flex-direction:column;align-items:center;gap:8px}
+#flipBtn,#boardToggleBtn{
+  background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);
+  color:#fff;border-radius:8px;padding:8px;font-size:16px;cursor:pointer;width:44px;height:44px
+}
+#countBadge{
+  position:absolute;top:12px;right:12px;
+  background:var(--accent);color:#fff;
+  border-radius:20px;padding:4px 10px;font-size:12px;font-weight:700
+}
+#flashMsg{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  background:rgba(255,255,255,.9);color:#000;padding:8px 20px;border-radius:8px;
+  font-weight:700;font-size:14px;opacity:0;pointer-events:none;transition:opacity .3s
+}
+
+/* ── BOARD EDITOR (bottom sheet) ── */
+#boardEditor{
+  position:absolute;bottom:0;left:0;right:0;
+  background:var(--surface);border-top:1px solid var(--border);
+  border-radius:16px 16px 0 0;padding:16px;
+  transform:translateY(100%);transition:transform .3s ease;z-index:20
+}
+#boardEditor.open{transform:translateY(0)}
+#boardEditor h3{font-size:14px;margin-bottom:12px;color:var(--accent2)}
+.bed-field{margin-bottom:10px}
+.bed-label{font-size:11px;color:var(--text2);margin-bottom:4px}
+.bed-input{
+  width:100%;background:var(--surface2);border:1px solid var(--border);
+  color:var(--text);border-radius:8px;padding:8px 10px;font-size:14px;
+  font-family:var(--font)
+}
+.bed-input:focus{outline:none;border-color:var(--accent2)}
+#closeBoardEditor{
+  margin-top:8px;width:100%;padding:10px;background:var(--accent);
+  color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer
+}
+
+/* ── GALLERY SCREEN ── */
+#galleryScreen{background:var(--bg)}
+#galleryHeader{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 16px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0
+}
+#galleryHeader h2{font-size:15px}
+#dlAllBtn{
+  background:var(--accent);color:#fff;border:none;border-radius:8px;
+  padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer
+}
+#filterWrap{
+  display:flex;gap:8px;padding:10px 16px;overflow-x:auto;flex-shrink:0;
+  scrollbar-width:none
+}
+#filterWrap::-webkit-scrollbar{display:none}
+.filter-chip{
+  flex-shrink:0;padding:5px 12px;border-radius:20px;font-size:12px;
+  border:1px solid var(--border);color:var(--text2);cursor:pointer;background:var(--surface);
+  white-space:nowrap
+}
+.filter-chip.active{background:var(--accent);border-color:var(--accent);color:#fff}
+#photoGrid{
+  flex:1;overflow-y:auto;padding:12px;
+  display:grid;grid-template-columns:repeat(2,1fr);gap:8px;
+  align-content:start
+}
+.photo-card{
+  background:var(--surface);border-radius:var(--radius);overflow:hidden;
+  border:1px solid var(--border);cursor:pointer;
+}
+.photo-thumb{width:100%;aspect-ratio:4/3;object-fit:cover;display:block}
+.photo-meta{padding:8px}
+.photo-type{font-size:10px;color:var(--accent2);font-weight:700;margin-bottom:2px}
+.photo-point{font-size:11px;color:var(--text);margin-bottom:2px}
+.photo-date{font-size:10px;color:var(--text2)}
+.empty-gallery{
+  grid-column:1/-1;text-align:center;color:var(--text2);
+  padding:60px 20px;font-size:14px
+}
+
+/* ── PHOTO DETAIL MODAL ── */
+#detailModal{
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:50;
+  flex-direction:column;align-items:center;justify-content:center
+}
+#detailModal.open{display:flex}
+#detailImg{max-width:100%;max-height:65dvh;max-height:65vh;object-fit:contain;border-radius:8px}
+#detailMeta{
+  margin-top:12px;padding:12px 16px;background:var(--surface);
+  border-radius:var(--radius);width:calc(100% - 32px);font-size:13px
+}
+.detail-row{display:flex;gap:8px;margin-bottom:4px}
+.detail-key{color:var(--text2);min-width:56px;font-size:12px}
+.detail-val{color:var(--text)}
+#detailActions{display:flex;gap:10px;margin-top:12px;width:calc(100% - 32px)}
+#detailDl,#detailDel,#detailClose{
+  flex:1;padding:12px;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer
+}
+#detailDl{background:var(--accent);color:#fff}
+#detailDel{background:rgba(217,83,79,.15);color:var(--danger);border:1px solid rgba(217,83,79,.3)}
+#detailClose{background:var(--surface2);color:var(--text)}
+
+/* ── SETTINGS SCREEN ── */
+#settingsScreen{background:var(--bg);overflow-y:auto;padding:20px 16px}
+#settingsScreen h2{font-size:15px;margin-bottom:16px}
+.setting-group{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);margin-bottom:16px;overflow:hidden}
+.setting-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 16px;border-bottom:1px solid var(--border)
+}
+.setting-row:last-child{border-bottom:none}
+.setting-label{font-size:14px}
+.setting-sub{font-size:11px;color:var(--text2);margin-top:2px}
+.setting-input{
+  background:var(--surface2);border:1px solid var(--border);color:var(--text);
+  border-radius:8px;padding:6px 10px;font-size:14px;font-family:var(--font);
+  width:160px;text-align:right
+}
+.setting-input:focus{outline:none;border-color:var(--accent2)}
+#clearAllBtn{
+  width:100%;padding:14px;background:rgba(217,83,79,.1);color:var(--danger);
+  border:1px solid rgba(217,83,79,.3);border-radius:var(--radius);
+  font-size:14px;font-weight:600;cursor:pointer;margin-top:8px
+}
+.stat-val{font-size:18px;font-weight:700;color:var(--accent2)}
+
+/* ── LOADING ── */
+#loading{
+  position:fixed;inset:0;background:var(--bg);display:flex;
+  align-items:center;justify-content:center;flex-direction:column;gap:12px;z-index:100
+}
+#loading p{color:var(--text2);font-size:13px}
+.spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent2);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="loading"><div class="spinner"></div><p>起動中...</p></div>
+<div id="app" style="display:none">
+  <div id="tabs">
+    <div class="tab active" data-screen="camScreen"><span class="tab-icon">📷</span>撮影</div>
+    <div class="tab" data-screen="galleryScreen"><span class="tab-icon">🗂</span>写真一覧</div>
+    <div class="tab" data-screen="settingsScreen"><span class="tab-icon">⚙️</span>設定</div>
+  </div>
+
+  <!-- CAMERA -->
+  <div class="screen active" id="camScreen">
+    <div id="videoWrap">
+      <video id="video" autoplay playsinline muted></video>
+      <canvas id="canvas"></canvas>
+      <div id="boardOverlay">
+        <div class="board-title">工事写真黒板</div>
+        <div class="board-row"><span class="board-label">工事名</span><span class="board-val" id="bv-koujimei">（未入力）</span></div>
+        <hr class="board-divider">
+        <div class="board-row"><span class="board-label">工　種</span><span class="board-val" id="bv-koushu">（未入力）</span></div>
+        <hr class="board-divider">
+        <div class="board-row"><span class="board-label">測　点</span><span class="board-val" id="bv-sokuten">（未入力）</span></div>
+        <hr class="board-divider">
+        <div class="board-row"><span class="board-label">備　考</span><span class="board-val" id="bv-biko">―</span></div>
+      </div>
+      <div id="countBadge">0枚</div>
+      <div id="flashMsg"></div>
+    </div>
+
+    <div id="boardEditor">
+      <h3>📋 黒板を編集</h3>
+      <div class="bed-field">
+        <div class="bed-label">工事名</div>
+        <input class="bed-input" id="in-koujimei" placeholder="例：○○橋補修工事" type="text">
+      </div>
+      <div class="bed-field">
+        <div class="bed-label">工種</div>
+        <input class="bed-input" id="in-koushu" placeholder="例：下地処理工" type="text">
+      </div>
+      <div class="bed-field">
+        <div class="bed-label">測点</div>
+        <input class="bed-input" id="in-sokuten" placeholder="例：P1橋脚左側面" type="text">
+      </div>
+      <div class="bed-field">
+        <div class="bed-label">自由記述</div>
+        <input class="bed-input" id="in-biko" placeholder="例：施工前" type="text">
+      </div>
+      <button id="closeBoardEditor">完了</button>
+    </div>
+
+    <div id="camControls">
+      <div class="cam-side">
+        <button id="boardToggleBtn" title="黒板編集">📋</button>
+        <button id="flipBtn" title="カメラ切替">🔄</button>
+      </div>
+      <button id="shotBtn">⬤</button>
+      <div class="cam-side" style="align-items:flex-end">
+        <div style="font-size:10px;color:var(--text2);text-align:center">ドラッグで<br>黒板移動</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GALLERY -->
+  <div class="screen" id="galleryScreen">
+    <div id="galleryHeader">
+      <h2>撮影済み写真</h2>
+      <button id="dlAllBtn">📦 ZIP出力</button>
+    </div>
+    <div id="filterWrap">
+      <div class="filter-chip active" data-filter="all">すべて</div>
+    </div>
+    <div id="photoGrid"></div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="screen" id="settingsScreen">
+    <h2>設定</h2>
+    <div class="setting-group">
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">工事名（デフォルト）</div>
+          <div class="setting-sub">撮影開始時に自動入力</div>
+        </div>
+        <input class="setting-input" id="def-koujimei" placeholder="工事名">
+      </div>
+    </div>
+    <div class="setting-group">
+      <div class="setting-row">
+        <div><div class="setting-label">保存写真数</div></div>
+        <div class="stat-val" id="statCount">0</div>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">使用容量（目安）</div></div>
+        <div class="stat-val" id="statSize">0 MB</div>
+      </div>
+    </div>
+    <button id="clearAllBtn">⚠️ 全写真を削除</button>
+  </div>
+</div>
+
+<!-- DETAIL MODAL -->
+<div id="detailModal">
+  <img id="detailImg" alt="">
+  <div id="detailMeta">
+    <div class="detail-row"><span class="detail-key">工事名</span><span class="detail-val" id="dm-koujimei"></span></div>
+    <div class="detail-row"><span class="detail-key">工種</span><span class="detail-val" id="dm-koushu"></span></div>
+    <div class="detail-row"><span class="detail-key">測点</span><span class="detail-val" id="dm-sokuten"></span></div>
+    <div class="detail-row"><span class="detail-key">備考</span><span class="detail-val" id="dm-biko"></span></div>
+    <div class="detail-row"><span class="detail-key">撮影日時</span><span class="detail-val" id="dm-date"></span></div>
+  </div>
+  <div id="detailActions">
+    <button id="detailDl">💾 保存</button>
+    <button id="detailDel">🗑 削除</button>
+    <button id="detailClose">閉じる</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+// ═══════════════════════════════════════
+//  DB
+// ═══════════════════════════════════════
+const DB_NAME='KoujiPhoto';const DB_VER=1;const STORE='photos';
+let db;
+function openDB(){
+  return new Promise((res,rej)=>{
+    const req=indexedDB.open(DB_NAME,DB_VER);
+    req.onupgradeneeded=e=>{
+      const d=e.target.result;
+      if(!d.objectStoreNames.contains(STORE)){
+        const s=d.createObjectStore(STORE,{keyPath:'id',autoIncrement:true});
+        s.createIndex('koushu','koushu',{unique:false});
+      }
+    };
+    req.onsuccess=e=>{db=e.target.result;res(db)};
+    req.onerror=()=>rej(req.error);
+  });
+}
+function dbAdd(photo){return new Promise((res,rej)=>{const t=db.transaction(STORE,'readwrite');const r=t.objectStore(STORE).add(photo);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+function dbGetAll(){return new Promise((res,rej)=>{const t=db.transaction(STORE,'readonly');const r=t.objectStore(STORE).getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+function dbDelete(id){return new Promise((res,rej)=>{const t=db.transaction(STORE,'readwrite');const r=t.objectStore(STORE).delete(id);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)})}
+function dbClear(){return new Promise((res,rej)=>{const t=db.transaction(STORE,'readwrite');const r=t.objectStore(STORE).clear();r.onsuccess=()=>res();r.onerror=()=>rej(r.error)})}
+
+// ═══════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════
+let stream=null;let facingMode='environment';
+let boardVisible=true;
+let boardData={koujimei:'',koushu:'',sokuten:'',biko:''};
+let photos=[];let filterKoushu='all';let detailId=null;
+
+// ═══════════════════════════════════════
+//  TABS
+// ═══════════════════════════════════════
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click',()=>{
+    document.querySelectorAll('.tab,.screen').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById(t.dataset.screen).classList.add('active');
+    if(t.dataset.screen==='galleryScreen')renderGallery();
+    if(t.dataset.screen==='settingsScreen')renderStats();
+  });
+});
+
+// ═══════════════════════════════════════
+//  CAMERA
+// ═══════════════════════════════════════
+const video=document.getElementById('video');
+const canvas=document.getElementById('canvas');
+async function startCamera(){
+  if(stream){stream.getTracks().forEach(t=>t.stop())}
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode,width:{ideal:3840},height:{ideal:2160}},audio:false
+    });
+    video.srcObject=stream;
+  }catch(e){
+    try{
+      stream=await navigator.mediaDevices.getUserMedia({video:{facingMode},audio:false});
+      video.srcObject=stream;
+    }catch(e2){alert('カメラを起動できませんでした: '+e2.message)}
+  }
+}
+document.getElementById('flipBtn').addEventListener('click',()=>{
+  facingMode=facingMode==='environment'?'user':'environment';
+  startCamera();
+});
+
+// ═══════════════════════════════════════
+//  BOARD DRAG (touch & mouse)
+// ═══════════════════════════════════════
+const board=document.getElementById('boardOverlay');
+let dragging=false;let dragOffX=0;let dragOffY=0;
+function boardPointerDown(cx,cy){
+  dragging=true;board.classList.add('dragging');
+  const r=board.getBoundingClientRect();
+  dragOffX=cx-r.left;dragOffY=cy-r.top;
+}
+function boardPointerMove(cx,cy){
+  if(!dragging)return;
+  const wrap=document.getElementById('videoWrap').getBoundingClientRect();
+  let x=cx-wrap.left-dragOffX;
+  let y=cy-wrap.top-dragOffY;
+  x=Math.max(0,Math.min(x,wrap.width-board.offsetWidth));
+  y=Math.max(0,Math.min(y,wrap.height-board.offsetHeight));
+  board.style.left=x+'px';board.style.top=y+'px';
+  board.style.bottom='auto';
+}
+function boardPointerUp(){dragging=false;board.classList.remove('dragging')}
+board.addEventListener('mousedown',e=>{if(e.target.tagName!=='INPUT'){e.preventDefault();boardPointerDown(e.clientX,e.clientY)}});
+document.addEventListener('mousemove',e=>{boardPointerMove(e.clientX,e.clientY)});
+document.addEventListener('mouseup',boardPointerUp);
+board.addEventListener('touchstart',e=>{const t=e.touches[0];boardPointerDown(t.clientX,t.clientY)},{passive:true});
+document.addEventListener('touchmove',e=>{if(dragging){e.preventDefault();const t=e.touches[0];boardPointerMove(t.clientX,t.clientY)}},{passive:false});
+document.addEventListener('touchend',boardPointerUp);
+
+// ═══════════════════════════════════════
+//  BOARD EDITOR
+// ═══════════════════════════════════════
+const boardEditor=document.getElementById('boardEditor');
+document.getElementById('boardToggleBtn').addEventListener('click',()=>{
+  boardEditor.classList.toggle('open');
+});
+document.getElementById('closeBoardEditor').addEventListener('click',()=>{
+  boardEditor.classList.remove('open');
+  updateBoardDisplay();
+});
+['koujimei','koushu','sokuten','biko'].forEach(k=>{
+  document.getElementById('in-'+k).addEventListener('input',e=>{
+    boardData[k]=e.target.value;
+    updateBoardDisplay();
+  });
+});
+function updateBoardDisplay(){
+  document.getElementById('bv-koujimei').textContent=boardData.koujimei||'（未入力）';
+  document.getElementById('bv-koushu').textContent=boardData.koushu||'（未入力）';
+  document.getElementById('bv-sokuten').textContent=boardData.sokuten||'（未入力）';
+  document.getElementById('bv-biko').textContent=boardData.biko||'―';
+}
+
+// ═══════════════════════════════════════
+//  SHOOT
+// ═══════════════════════════════════════
+document.getElementById('shotBtn').addEventListener('click',shoot);
+async function shoot(){
+  if(!stream)return;
+  const vt=video.videoWidth;const vh=video.videoHeight;
+  if(!vt||!vh){showFlash('カメラ準備中...');return}
+  canvas.width=vt;canvas.height=vh;
+  const ctx=canvas.getContext('2d');
+  ctx.drawImage(video,0,0,vt,vh);
+
+  // Draw board overlay onto canvas
+  const wrap=document.getElementById('videoWrap');
+  const vRect=video.getBoundingClientRect();
+  const bRect=board.getBoundingClientRect();
+  const scaleX=vt/vRect.width;const scaleY=vh/vRect.height;
+  const bx=(bRect.left-vRect.left)*scaleX;
+  const by=(bRect.top-vRect.top)*scaleY;
+  const bw=bRect.width*scaleX;
+  const bh=bRect.height*scaleY;
+
+  const fs=Math.max(14,bh*0.07);
+  ctx.save();
+  // board bg
+  ctx.fillStyle='#1a4a2e';
+  roundRect(ctx,bx,by,bw,bh,fs*0.3);
+  ctx.fill();
+  ctx.strokeStyle='#8fbc8f';ctx.lineWidth=Math.max(2,bw*0.008);
+  roundRect(ctx,bx,by,bw,bh,fs*0.3);
+  ctx.stroke();
+
+  const pad=fs*0.6;const lineH=fs*1.6;
+  ctx.font=`bold ${fs*0.65}px sans-serif`;
+  ctx.fillStyle='#aed9b8';
+  ctx.fillText('工事写真黒板',bx+pad,by+pad+fs*0.65);
+
+  const labels=['工事名','工　種','測　点','備　考'];
+  const vals=[boardData.koujimei||'（未入力）',boardData.koushu||'（未入力）',boardData.sokuten||'（未入力）',boardData.biko||'―'];
+  const startY=by+pad+fs*1.4;
+  labels.forEach((lbl,i)=>{
+    const ry=startY+i*lineH;
+    if(i>0){
+      ctx.strokeStyle='#4a7a5a';ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(bx+pad,ry-lineH*0.25);ctx.lineTo(bx+bw-pad,ry-lineH*0.25);ctx.stroke();
+    }
+    ctx.font=`${fs*0.65}px sans-serif`;ctx.fillStyle='#8fbc8f';
+    ctx.fillText(lbl,bx+pad,ry+fs*0.65);
+    ctx.font=`bold ${fs*0.8}px sans-serif`;ctx.fillStyle='#fff';
+    const labelW=ctx.measureText(lbl).width+pad*0.5;
+    ctx.fillText(vals[i],bx+pad+labelW+pad*0.8,ry+fs*0.8);
+  });
+  ctx.restore();
+
+  const dataUrl=canvas.toDataURL('image/jpeg',0.92);
+  const now=new Date();
+  const photo={
+    dataUrl,
+    koujimei:boardData.koujimei,
+    koushu:boardData.koushu,
+    sokuten:boardData.sokuten,
+    biko:boardData.biko,
+    date:now.toISOString()
+  };
+  await dbAdd(photo);
+  photos=await dbGetAll();
+  updateCount();
+  showFlash('撮影しました ✓');
+}
+
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.arcTo(x+w,y,x+w,y+r,r);
+  ctx.lineTo(x+w,y+h-r);ctx.arcTo(x+w,y+h,x+w-r,y+h,r);
+  ctx.lineTo(x+r,y+h);ctx.arcTo(x,y+h,x,y+h-r,r);
+  ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);
+  ctx.closePath();
+}
+
+function showFlash(msg){
+  const el=document.getElementById('flashMsg');
+  el.textContent=msg;el.style.opacity=1;
+  setTimeout(()=>{el.style.opacity=0},1200);
+}
+function updateCount(){
+  document.getElementById('countBadge').textContent=photos.length+'枚';
+}
+
+// ═══════════════════════════════════════
+//  GALLERY
+// ═══════════════════════════════════════
+function renderGallery(){
+  const grid=document.getElementById('photoGrid');
+  const filterWrap=document.getElementById('filterWrap');
+
+  // Build filter chips
+  const koushuSet=new Set(photos.map(p=>p.koushu).filter(Boolean));
+  filterWrap.innerHTML='<div class="filter-chip'+(filterKoushu==='all'?' active':'')+'" data-filter="all">すべて</div>';
+  koushuSet.forEach(k=>{
+    const chip=document.createElement('div');
+    chip.className='filter-chip'+(filterKoushu===k?' active':'');
+    chip.dataset.filter=k;chip.textContent=k;
+    filterWrap.appendChild(chip);
+  });
+  filterWrap.querySelectorAll('.filter-chip').forEach(c=>{
+    c.addEventListener('click',()=>{
+      filterKoushu=c.dataset.filter;
+      renderGallery();
+    });
+  });
+
+  const filtered=filterKoushu==='all'?photos:photos.filter(p=>p.koushu===filterKoushu);
+  grid.innerHTML='';
+  if(!filtered.length){
+    grid.innerHTML='<div class="empty-gallery">📷 まだ写真がありません</div>';return;
+  }
+  filtered.slice().reverse().forEach(p=>{
+    const d=document.createElement('div');d.className='photo-card';
+    const dt=new Date(p.date);
+    d.innerHTML=`<img class="photo-thumb" src="${p.dataUrl}" loading="lazy">
+    <div class="photo-meta">
+      <div class="photo-type">${p.koushu||'工種なし'}</div>
+      <div class="photo-point">${p.sokuten||'測点なし'}</div>
+      <div class="photo-date">${fmt(dt)}</div>
+    </div>`;
+    d.addEventListener('click',()=>openDetail(p.id));
+    grid.appendChild(d);
+  });
+}
+function fmt(d){return`${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`}
+function pad(n){return String(n).padStart(2,'0')}
+
+// ═══════════════════════════════════════
+//  DETAIL MODAL
+// ═══════════════════════════════════════
+function openDetail(id){
+  const p=photos.find(x=>x.id===id);if(!p)return;
+  detailId=id;
+  document.getElementById('detailImg').src=p.dataUrl;
+  document.getElementById('dm-koujimei').textContent=p.koujimei||'―';
+  document.getElementById('dm-koushu').textContent=p.koushu||'―';
+  document.getElementById('dm-sokuten').textContent=p.sokuten||'―';
+  document.getElementById('dm-biko').textContent=p.biko||'―';
+  document.getElementById('dm-date').textContent=fmt(new Date(p.date));
+  document.getElementById('detailModal').classList.add('open');
+}
+document.getElementById('detailClose').addEventListener('click',()=>{
+  document.getElementById('detailModal').classList.remove('open');
+});
+document.getElementById('detailDl').addEventListener('click',()=>{
+  const p=photos.find(x=>x.id===detailId);if(!p)return;
+  const a=document.createElement('a');
+  a.href=p.dataUrl;
+  a.download=buildFilename(p);
+  a.click();
+});
+document.getElementById('detailDel').addEventListener('click',async()=>{
+  if(!confirm('この写真を削除しますか？'))return;
+  await dbDelete(detailId);
+  photos=await dbGetAll();
+  updateCount();
+  document.getElementById('detailModal').classList.remove('open');
+  renderGallery();
+});
+document.getElementById('detailModal').addEventListener('click',e=>{
+  if(e.target===e.currentTarget)document.getElementById('detailModal').classList.remove('open');
+});
+
+// ═══════════════════════════════════════
+//  ZIP DOWNLOAD
+// ═══════════════════════════════════════
+document.getElementById('dlAllBtn').addEventListener('click',async()=>{
+  if(!photos.length){alert('写真がありません');return}
+  const btn=document.getElementById('dlAllBtn');
+  btn.textContent='📦 生成中...';btn.disabled=true;
+  try{
+    const zip=new JSZip();
+    const counters={};
+    photos.forEach(p=>{
+      const folder=p.koushu||'未分類';
+      const dt=new Date(p.date);
+      if(!counters[folder])counters[folder]=0;
+      counters[folder]++;
+      const fname=`${yyyymmdd(dt)}_${pad(counters[folder])}.jpg`;
+      const base64=p.dataUrl.split(',')[1];
+      zip.folder(folder).file(fname,base64,{base64:true});
+    });
+    const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download=`工事写真_${yyyymmdd(new Date())}.zip`;a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),5000);
+  }finally{btn.textContent='📦 ZIP出力';btn.disabled=false}
+});
+function buildFilename(p){
+  const dt=new Date(p.date);
+  const base=`${yyyymmdd(dt)}_${p.koushu||'未分類'}_${p.sokuten||''}`.replace(/[\/\\:*?"<>|]/g,'_');
+  return base+'.jpg';
+}
+function yyyymmdd(d){return`${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}`}
+
+// ═══════════════════════════════════════
+//  SETTINGS
+// ═══════════════════════════════════════
+document.getElementById('def-koujimei').addEventListener('change',e=>{
+  localStorage.setItem('def_koujimei',e.target.value);
+});
+document.getElementById('clearAllBtn').addEventListener('click',async()=>{
+  if(!confirm('全写真を削除します。元に戻せません。'))return;
+  await dbClear();
+  photos=[];updateCount();renderStats();
+  alert('削除しました');
+});
+function renderStats(){
+  document.getElementById('statCount').textContent=photos.length+'枚';
+  const bytes=photos.reduce((s,p)=>s+p.dataUrl.length*0.75,0);
+  document.getElementById('statSize').textContent=(bytes/1024/1024).toFixed(1)+' MB';
+}
+
+// ═══════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════
+async function init(){
+  await openDB();
+  photos=await dbGetAll();
+
+  // load default koujimei
+  const defK=localStorage.getItem('def_koujimei')||'';
+  if(defK){
+    boardData.koujimei=defK;
+    document.getElementById('in-koujimei').value=defK;
+    updateBoardDisplay();
+  }
+  document.getElementById('def-koujimei').value=defK;
+
+  updateCount();
+  await startCamera();
+  document.getElementById('loading').style.display='none';
+  document.getElementById('app').style.display='flex';
+}
+init().catch(e=>{
+  document.getElementById('loading').innerHTML='<p style="color:#d9534f">起動エラー: '+e.message+'</p>';
+});
+</script>
+</body>
+</html>
