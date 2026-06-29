@@ -10,200 +10,153 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
-  --bg:#0f1117;
-  --surface:#1a1d27;
-  --surface2:#242736;
-  --border:#2e3347;
-  --accent:#2e7d5e;
-  --accent2:#3da876;
-  --text:#e8eaf0;
-  --text2:#8b91a8;
-  --danger:#d9534f;
-  --board-green:#1a4a2e;
-  --radius:12px;
+  --bg:#0f1117;--surface:#1a1d27;--surface2:#242736;--border:#2e3347;
+  --accent:#2e7d5e;--accent2:#3da876;--text:#e8eaf0;--text2:#8b91a8;
+  --danger:#d9534f;--board-green:#1a4a2e;--radius:12px;
   --font:'Hiragino Kaku Gothic ProN','Hiragino Sans',sans-serif;
 }
 html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--font)}
 #app{display:flex;flex-direction:column;height:100dvh;height:100vh}
 
-/* ── TABS ── */
+/* TABS */
 #tabs{display:flex;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
-.tab{flex:1;padding:14px 8px;text-align:center;font-size:12px;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;transition:.2s}
+.tab{flex:1;padding:12px 4px;text-align:center;font-size:11px;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;transition:.2s}
 .tab.active{color:var(--accent2);border-bottom-color:var(--accent2)}
-.tab-icon{font-size:18px;display:block;margin-bottom:2px}
+.tab-icon{font-size:17px;display:block;margin-bottom:2px}
 
-/* ── SCREENS ── */
 .screen{display:none;flex:1;overflow:hidden;flex-direction:column}
 .screen.active{display:flex}
 
-/* ── CAMERA SCREEN ── */
+/* LANDSCAPE */
+@media (orientation:landscape) and (max-height:520px){
+  #tabs .tab{padding:5px 4px;font-size:10px}
+  .tab-icon{font-size:14px;margin-bottom:0;display:inline-block;margin-right:4px}
+  #camControls{padding:6px 16px}
+  #shotBtn{width:52px;height:52px;border-width:3px;font-size:20px}
+  #flipBtn,#boardToggleBtn{width:38px;height:38px;padding:5px;font-size:14px}
+  .cam-side{width:46px;gap:5px}
+  #boardOverlay{bottom:60px}
+  #photoGrid{grid-template-columns:repeat(3,1fr)}
+}
+
+/* CAMERA */
 #camScreen{position:relative;background:#000}
 #videoWrap{position:relative;flex:1;overflow:hidden;display:flex;align-items:center;justify-content:center}
 #video{width:100%;height:100%;object-fit:cover}
 #canvas{display:none}
 #boardOverlay{
-  position:absolute;
-  background:var(--board-green);
-  border:3px solid #8fbc8f;
-  border-radius:4px;
-  padding:8px 10px;
-  cursor:grab;
-  user-select:none;
-  touch-action:none;
-  min-width:180px;
-  max-width:70%;
-  box-shadow:0 2px 12px rgba(0,0,0,.6);
-  bottom:80px;left:12px;
+  position:absolute;background:var(--board-green);border:3px solid #8fbc8f;
+  border-radius:4px;padding:8px 10px;cursor:grab;user-select:none;touch-action:none;
+  width:200px;box-shadow:0 2px 12px rgba(0,0,0,.6);bottom:80px;left:12px;
 }
 #boardOverlay.dragging{cursor:grabbing;box-shadow:0 8px 24px rgba(0,0,0,.8)}
 .board-title{font-size:9px;color:#aed9b8;letter-spacing:.1em;margin-bottom:4px;font-weight:600}
-.board-row{display:flex;gap:4px;margin-bottom:3px;align-items:flex-start}
-.board-label{font-size:9px;color:#8fbc8f;white-space:nowrap;padding-top:1px;min-width:42px}
-.board-val{font-size:11px;color:#fff;font-weight:600;word-break:break-all;line-height:1.3}
+.board-row{display:flex;gap:4px;margin-bottom:3px;align-items:center;min-height:16px}
+.board-label{font-size:9px;color:#8fbc8f;white-space:nowrap;min-width:42px;flex-shrink:0}
+.board-val{font-size:11px;color:#fff;font-weight:600;line-height:1.3;flex:1;min-width:0;white-space:nowrap;overflow:hidden}
 .board-divider{border:none;border-top:1px solid #4a7a5a;margin:4px 0}
 
-#camControls{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:12px 20px;background:rgba(0,0,0,.85);flex-shrink:0
-}
-#shotBtn{
-  width:70px;height:70px;border-radius:50%;
-  border:4px solid #fff;background:rgba(255,255,255,.15);
-  display:flex;align-items:center;justify-content:center;
-  font-size:28px;cursor:pointer;transition:.15s;
-  flex-shrink:0
-}
+#camControls{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:rgba(0,0,0,.85);flex-shrink:0}
+#shotBtn{width:70px;height:70px;border-radius:50%;border:4px solid #fff;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:28px;cursor:pointer;transition:.15s;flex-shrink:0}
 #shotBtn:active{transform:scale(.9);background:rgba(255,255,255,.3)}
 .cam-side{width:60px;display:flex;flex-direction:column;align-items:center;gap:8px}
-#flipBtn,#boardToggleBtn{
-  background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);
-  color:#fff;border-radius:8px;padding:8px;font-size:16px;cursor:pointer;width:44px;height:44px
-}
-#countBadge{
-  position:absolute;top:12px;right:12px;
-  background:var(--accent);color:#fff;
-  border-radius:20px;padding:4px 10px;font-size:12px;font-weight:700
-}
-#flashMsg{
-  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-  background:rgba(255,255,255,.9);color:#000;padding:8px 20px;border-radius:8px;
-  font-weight:700;font-size:14px;opacity:0;pointer-events:none;transition:opacity .3s
-}
+#flipBtn,#boardToggleBtn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:8px;padding:8px;font-size:16px;cursor:pointer;width:44px;height:44px}
+#countBadge{position:absolute;top:12px;right:12px;background:var(--accent);color:#fff;border-radius:20px;padding:4px 10px;font-size:12px;font-weight:700}
+#flashMsg{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(255,255,255,.92);color:#000;padding:8px 16px;border-radius:8px;font-weight:700;font-size:13px;opacity:0;pointer-events:none;transition:opacity .3s;text-align:center;max-width:80%}
 
-/* ── BOARD EDITOR (bottom sheet) ── */
-#boardEditor{
-  position:absolute;bottom:0;left:0;right:0;
-  background:var(--surface);border-top:1px solid var(--border);
-  border-radius:16px 16px 0 0;padding:16px;
-  transform:translateY(100%);transition:transform .3s ease;z-index:20
-}
+/* BOARD EDITOR */
+#boardEditor{position:absolute;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);border-radius:16px 16px 0 0;padding:16px;transform:translateY(100%);transition:transform .3s ease;z-index:20;max-height:85dvh;max-height:85vh;overflow-y:auto}
 #boardEditor.open{transform:translateY(0)}
 #boardEditor h3{font-size:14px;margin-bottom:12px;color:var(--accent2)}
 .bed-field{margin-bottom:10px}
 .bed-label{font-size:11px;color:var(--text2);margin-bottom:4px}
-.bed-input{
-  width:100%;background:var(--surface2);border:1px solid var(--border);
-  color:var(--text);border-radius:8px;padding:8px 10px;font-size:14px;
-  font-family:var(--font)
-}
+.bed-input{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 10px;font-size:14px;font-family:var(--font)}
 .bed-input:focus{outline:none;border-color:var(--accent2)}
-#closeBoardEditor{
-  margin-top:8px;width:100%;padding:10px;background:var(--accent);
-  color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer
-}
+select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238b91a8' d='M2 4l4 4 4-4'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
+#closeBoardEditor{margin-top:8px;width:100%;padding:11px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}
+#goMasterLink{display:block;text-align:center;margin-top:10px;color:var(--accent2);font-size:12px;text-decoration:underline;cursor:pointer}
+.bed-empty{font-size:12px;color:var(--text2);text-align:center;padding:8px;background:var(--surface2);border-radius:8px;margin-bottom:10px}
 
-/* ── GALLERY SCREEN ── */
+/* GALLERY */
 #galleryScreen{background:var(--bg)}
-#galleryHeader{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:14px 16px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0
-}
+#galleryHeader{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
 #galleryHeader h2{font-size:15px}
-#dlAllBtn{
-  background:var(--accent);color:#fff;border:none;border-radius:8px;
-  padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer
-}
-#filterWrap{
-  display:flex;gap:8px;padding:10px 16px;overflow-x:auto;flex-shrink:0;
-  scrollbar-width:none
-}
+#dlAllBtn{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer}
+#filterWrap{display:flex;gap:8px;padding:10px 16px;overflow-x:auto;flex-shrink:0;scrollbar-width:none}
 #filterWrap::-webkit-scrollbar{display:none}
-.filter-chip{
-  flex-shrink:0;padding:5px 12px;border-radius:20px;font-size:12px;
-  border:1px solid var(--border);color:var(--text2);cursor:pointer;background:var(--surface);
-  white-space:nowrap
-}
+.filter-chip{flex-shrink:0;padding:5px 12px;border-radius:20px;font-size:12px;border:1px solid var(--border);color:var(--text2);cursor:pointer;background:var(--surface);white-space:nowrap}
 .filter-chip.active{background:var(--accent);border-color:var(--accent);color:#fff}
-#photoGrid{
-  flex:1;overflow-y:auto;padding:12px;
-  display:grid;grid-template-columns:repeat(2,1fr);gap:8px;
-  align-content:start
-}
-.photo-card{
-  background:var(--surface);border-radius:var(--radius);overflow:hidden;
-  border:1px solid var(--border);cursor:pointer;
-}
+#photoGrid{flex:1;overflow-y:auto;padding:12px;display:grid;grid-template-columns:repeat(2,1fr);gap:8px;align-content:start}
+.photo-card{background:var(--surface);border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);cursor:pointer}
 .photo-thumb{width:100%;aspect-ratio:4/3;object-fit:cover;display:block}
 .photo-meta{padding:8px}
 .photo-type{font-size:10px;color:var(--accent2);font-weight:700;margin-bottom:2px}
 .photo-point{font-size:11px;color:var(--text);margin-bottom:2px}
 .photo-date{font-size:10px;color:var(--text2)}
-.empty-gallery{
-  grid-column:1/-1;text-align:center;color:var(--text2);
-  padding:60px 20px;font-size:14px
-}
+.empty-gallery{grid-column:1/-1;text-align:center;color:var(--text2);padding:60px 20px;font-size:14px}
 
-/* ── PHOTO DETAIL MODAL ── */
-#detailModal{
-  display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:50;
-  flex-direction:column;align-items:center;justify-content:center
-}
+/* DETAIL MODAL */
+#detailModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:50;flex-direction:column;align-items:center;justify-content:center;padding:16px}
 #detailModal.open{display:flex}
-#detailImg{max-width:100%;max-height:65dvh;max-height:65vh;object-fit:contain;border-radius:8px}
-#detailMeta{
-  margin-top:12px;padding:12px 16px;background:var(--surface);
-  border-radius:var(--radius);width:calc(100% - 32px);font-size:13px
-}
+#detailImg{max-width:100%;max-height:55dvh;max-height:55vh;object-fit:contain;border-radius:8px}
+#detailMeta{margin-top:12px;padding:12px 16px;background:var(--surface);border-radius:var(--radius);width:100%;font-size:13px;max-height:25dvh;max-height:25vh;overflow-y:auto}
 .detail-row{display:flex;gap:8px;margin-bottom:4px}
-.detail-key{color:var(--text2);min-width:56px;font-size:12px}
+.detail-key{color:var(--text2);min-width:56px;font-size:12px;flex-shrink:0}
 .detail-val{color:var(--text)}
-#detailActions{display:flex;gap:10px;margin-top:12px;width:calc(100% - 32px)}
-#detailDl,#detailDel,#detailClose{
-  flex:1;padding:12px;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer
-}
+#detailActions{display:flex;gap:10px;margin-top:12px;width:100%}
+#detailDl,#detailDel,#detailClose{flex:1;padding:12px;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer}
 #detailDl{background:var(--accent);color:#fff}
 #detailDel{background:rgba(217,83,79,.15);color:var(--danger);border:1px solid rgba(217,83,79,.3)}
 #detailClose{background:var(--surface2);color:var(--text)}
 
-/* ── SETTINGS SCREEN ── */
+/* MASTER (工種設定) */
+#masterScreen{background:var(--bg);overflow-y:auto;padding:16px}
+#masterScreen h2{font-size:15px;margin-bottom:6px}
+.m-sub{font-size:11px;color:var(--text2);margin-bottom:16px}
+.kouji-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:14px;overflow:hidden}
+.kouji-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--surface2);cursor:pointer}
+.kouji-name{font-size:14px;font-weight:700;color:var(--text)}
+.kouji-head-right{display:flex;gap:6px;align-items:center}
+.kouji-toggle{font-size:12px;color:var(--text2);transition:.2s}
+.kouji-card.open .kouji-toggle{transform:rotate(90deg)}
+.icon-btn{background:none;border:none;color:var(--text2);font-size:15px;cursor:pointer;padding:2px 6px}
+.kouji-body{display:none;padding:12px 14px}
+.kouji-card.open .kouji-body{display:block}
+.m-section-title{font-size:11px;color:var(--accent2);font-weight:700;margin:14px 0 6px;letter-spacing:.05em}
+.m-section-title:first-child{margin-top:0}
+.ks-item{border-left:2px solid var(--border);padding-left:10px;margin-bottom:8px}
+.ks-row{display:flex;align-items:center;justify-content:space-between;padding:3px 0}
+.ks-name{font-size:13px;font-weight:600;color:var(--text)}
+.type-list{padding-left:12px;margin-top:2px}
+.tp-row{display:flex;align-items:center;justify-content:space-between;padding:2px 0}
+.tp-name{font-size:12px;color:var(--text)}
+.detail-list{display:flex;flex-wrap:wrap;gap:5px;padding-left:12px;margin:4px 0 6px}
+.chip,.detail-chip{display:inline-flex;align-items:center;gap:4px;background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:3px 6px 3px 10px;font-size:11px;color:var(--text)}
+.chip button,.detail-chip button{background:none;border:none;color:var(--text2);font-size:13px;cursor:pointer;line-height:1;padding:0 2px}
+.chip-list{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+.add-inline{display:flex;gap:4px;align-items:center;margin-top:4px;width:100%}
+.add-inline input{flex:1;min-width:0;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:5px 8px;font-size:12px;font-family:var(--font)}
+.add-inline input:focus{outline:none;border-color:var(--accent2)}
+.add-inline button{flex-shrink:0;background:var(--accent);color:#fff;border:none;border-radius:7px;padding:5px 10px;font-size:12px;cursor:pointer;white-space:nowrap}
+.add-kouji{display:flex;gap:6px;margin-top:8px}
+.add-kouji input{flex:1;min-width:0;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:10px;font-size:14px;font-family:var(--font)}
+.add-kouji input:focus{outline:none;border-color:var(--accent2)}
+.add-kouji button{flex-shrink:0;background:var(--accent2);color:#fff;border:none;border-radius:8px;padding:10px 14px;font-size:13px;font-weight:600;cursor:pointer}
+.m-empty{text-align:center;color:var(--text2);font-size:13px;padding:30px 10px}
+
+/* SETTINGS */
 #settingsScreen{background:var(--bg);overflow-y:auto;padding:20px 16px}
 #settingsScreen h2{font-size:15px;margin-bottom:16px}
 .setting-group{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);margin-bottom:16px;overflow:hidden}
-.setting-row{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:14px 16px;border-bottom:1px solid var(--border)
-}
+.setting-row{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)}
 .setting-row:last-child{border-bottom:none}
 .setting-label{font-size:14px}
 .setting-sub{font-size:11px;color:var(--text2);margin-top:2px}
-.setting-input{
-  background:var(--surface2);border:1px solid var(--border);color:var(--text);
-  border-radius:8px;padding:6px 10px;font-size:14px;font-family:var(--font);
-  width:160px;text-align:right
-}
-.setting-input:focus{outline:none;border-color:var(--accent2)}
-#clearAllBtn{
-  width:100%;padding:14px;background:rgba(217,83,79,.1);color:var(--danger);
-  border:1px solid rgba(217,83,79,.3);border-radius:var(--radius);
-  font-size:14px;font-weight:600;cursor:pointer;margin-top:8px
-}
 .stat-val{font-size:18px;font-weight:700;color:var(--accent2)}
+#clearAllBtn{width:100%;padding:14px;background:rgba(217,83,79,.1);color:var(--danger);border:1px solid rgba(217,83,79,.3);border-radius:var(--radius);font-size:14px;font-weight:600;cursor:pointer;margin-top:8px}
 
-/* ── LOADING ── */
-#loading{
-  position:fixed;inset:0;background:var(--bg);display:flex;
-  align-items:center;justify-content:center;flex-direction:column;gap:12px;z-index:100
-}
+/* LOADING */
+#loading{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;z-index:100}
 #loading p{color:var(--text2);font-size:13px}
 .spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent2);border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -214,7 +167,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 <div id="app" style="display:none">
   <div id="tabs">
     <div class="tab active" data-screen="camScreen"><span class="tab-icon">📷</span>撮影</div>
-    <div class="tab" data-screen="galleryScreen"><span class="tab-icon">🗂</span>写真一覧</div>
+    <div class="tab" data-screen="galleryScreen"><span class="tab-icon">🗂</span>写真</div>
+    <div class="tab" data-screen="masterScreen"><span class="tab-icon">📁</span>工種設定</div>
     <div class="tab" data-screen="settingsScreen"><span class="tab-icon">⚙️</span>設定</div>
   </div>
 
@@ -225,13 +179,15 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
       <canvas id="canvas"></canvas>
       <div id="boardOverlay">
         <div class="board-title">工事写真黒板</div>
-        <div class="board-row"><span class="board-label">工事名</span><span class="board-val" id="bv-koujimei">（未入力）</span></div>
+        <div class="board-row"><span class="board-label">工事名</span><span class="board-val" id="bv-koujimei">（未選択）</span></div>
         <hr class="board-divider">
-        <div class="board-row"><span class="board-label">工　種</span><span class="board-val" id="bv-koushu">（未入力）</span></div>
+        <div class="board-row"><span class="board-label">工　種</span><span class="board-val" id="bv-koushu">―</span></div>
         <hr class="board-divider">
-        <div class="board-row"><span class="board-label">測　点</span><span class="board-val" id="bv-sokuten">（未入力）</span></div>
+        <div class="board-row"><span class="board-label">種別細別</span><span class="board-val" id="bv-shubetsu">―</span></div>
         <hr class="board-divider">
-        <div class="board-row"><span class="board-label">備　考</span><span class="board-val" id="bv-biko">―</span></div>
+        <div class="board-row"><span class="board-label">測　点</span><span class="board-val" id="bv-sokuten">―</span></div>
+        <hr class="board-divider">
+        <div class="board-row"><span class="board-label">摘　要</span><span class="board-val" id="bv-tekiyo">―</span></div>
       </div>
       <div id="countBadge">0枚</div>
       <div id="flashMsg"></div>
@@ -239,23 +195,37 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 
     <div id="boardEditor">
       <h3>📋 黒板を編集</h3>
+      <div id="bedNoMaster" class="bed-empty" style="display:none">
+        工事が未登録です。「工種設定」タブで工事を追加してください。
+      </div>
       <div class="bed-field">
-        <div class="bed-label">工事名</div>
-        <input class="bed-input" id="in-koujimei" placeholder="例：○○橋補修工事" type="text">
+        <div class="bed-label">工事</div>
+        <select class="bed-input" id="sel-kouji"><option value="">（工事を選択）</option></select>
       </div>
       <div class="bed-field">
         <div class="bed-label">工種</div>
-        <input class="bed-input" id="in-koushu" placeholder="例：下地処理工" type="text">
+        <select class="bed-input" id="sel-koushu"><option value="">―</option></select>
+      </div>
+      <div class="bed-field" id="field-shubetsu">
+        <div class="bed-label">種別</div>
+        <select class="bed-input" id="sel-shubetsu"><option value="">―</option></select>
+      </div>
+      <div class="bed-field" id="field-saibetsu">
+        <div class="bed-label">細別</div>
+        <select class="bed-input" id="sel-saibetsu"><option value="">―</option></select>
       </div>
       <div class="bed-field">
         <div class="bed-label">測点</div>
-        <input class="bed-input" id="in-sokuten" placeholder="例：P1橋脚左側面" type="text">
+        <select class="bed-input" id="sel-sokuten"><option value="">―</option><option value="__manual__">＋ 手入力</option></select>
+        <input class="bed-input" id="in-sokuten" style="display:none;margin-top:6px" placeholder="測点を入力" type="text">
       </div>
       <div class="bed-field">
-        <div class="bed-label">自由記述</div>
-        <input class="bed-input" id="in-biko" placeholder="例：施工前" type="text">
+        <div class="bed-label">摘要（自由記述）</div>
+        <select class="bed-input" id="sel-tekiyo"><option value="">―</option><option value="__manual__">＋ 手入力</option></select>
+        <input class="bed-input" id="in-tekiyo" style="display:none;margin-top:6px" placeholder="摘要を入力" type="text">
       </div>
       <button id="closeBoardEditor">完了</button>
+      <span id="goMasterLink">工種設定を編集 →</span>
     </div>
 
     <div id="camControls">
@@ -276,10 +246,19 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
       <h2>撮影済み写真</h2>
       <button id="dlAllBtn">📦 ZIP出力</button>
     </div>
-    <div id="filterWrap">
-      <div class="filter-chip active" data-filter="all">すべて</div>
-    </div>
+    <div id="filterWrap"><div class="filter-chip active" data-filter="all">すべて</div></div>
     <div id="photoGrid"></div>
+  </div>
+
+  <!-- MASTER -->
+  <div class="screen" id="masterScreen">
+    <h2>工種設定</h2>
+    <div class="m-sub">工事ごとに 工種→種別→細別・測点・摘要 を登録します</div>
+    <div id="masterList"></div>
+    <div class="add-kouji">
+      <input id="newKoujiName" placeholder="新しい工事名" type="text">
+      <button id="addKoujiBtn">＋ 工事</button>
+    </div>
   </div>
 
   <!-- SETTINGS -->
@@ -287,22 +266,18 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
     <h2>設定</h2>
     <div class="setting-group">
       <div class="setting-row">
-        <div>
-          <div class="setting-label">工事名（デフォルト）</div>
-          <div class="setting-sub">撮影開始時に自動入力</div>
-        </div>
-        <input class="setting-input" id="def-koujimei" placeholder="工事名">
+        <div><div class="setting-label">CALS基準</div><div class="setting-sub">長辺2000pxに自動リサイズ（約300万画素以下）</div></div>
+        <div class="stat-val" style="font-size:13px;color:var(--accent2)">✓ 準拠</div>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">カメラ実解像度</div><div class="setting-sub">端末が出力できる最大値</div></div>
+        <div class="stat-val" id="statCamRes" style="font-size:13px">―</div>
       </div>
     </div>
     <div class="setting-group">
-      <div class="setting-row">
-        <div><div class="setting-label">保存写真数</div></div>
-        <div class="stat-val" id="statCount">0</div>
-      </div>
-      <div class="setting-row">
-        <div><div class="setting-label">使用容量（目安）</div></div>
-        <div class="stat-val" id="statSize">0 MB</div>
-      </div>
+      <div class="setting-row"><div><div class="setting-label">登録工事数</div></div><div class="stat-val" id="statKouji">0</div></div>
+      <div class="setting-row"><div><div class="setting-label">保存写真数</div></div><div class="stat-val" id="statCount">0</div></div>
+      <div class="setting-row"><div><div class="setting-label">使用容量（目安）</div></div><div class="stat-val" id="statSize">0 MB</div></div>
     </div>
     <button id="clearAllBtn">⚠️ 全写真を削除</button>
   </div>
@@ -314,8 +289,11 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
   <div id="detailMeta">
     <div class="detail-row"><span class="detail-key">工事名</span><span class="detail-val" id="dm-koujimei"></span></div>
     <div class="detail-row"><span class="detail-key">工種</span><span class="detail-val" id="dm-koushu"></span></div>
+    <div class="detail-row"><span class="detail-key">種別</span><span class="detail-val" id="dm-shubetsu"></span></div>
+    <div class="detail-row"><span class="detail-key">細別</span><span class="detail-val" id="dm-saibetsu"></span></div>
     <div class="detail-row"><span class="detail-key">測点</span><span class="detail-val" id="dm-sokuten"></span></div>
-    <div class="detail-row"><span class="detail-key">備考</span><span class="detail-val" id="dm-biko"></span></div>
+    <div class="detail-row"><span class="detail-key">摘要</span><span class="detail-val" id="dm-tekiyo"></span></div>
+    <div class="detail-row"><span class="detail-key">画素数</span><span class="detail-val" id="dm-pixel"></span></div>
     <div class="detail-row"><span class="detail-key">撮影日時</span><span class="detail-val" id="dm-date"></span></div>
   </div>
   <div id="detailActions">
@@ -327,41 +305,42 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
-// ═══════════════════════════════════════
-//  DB
-// ═══════════════════════════════════════
-const DB_NAME='KoujiPhoto';const DB_VER=1;const STORE='photos';
-let db;
-function openDB(){
-  return new Promise((res,rej)=>{
-    const req=indexedDB.open(DB_NAME,DB_VER);
-    req.onupgradeneeded=e=>{
-      const d=e.target.result;
-      if(!d.objectStoreNames.contains(STORE)){
-        const s=d.createObjectStore(STORE,{keyPath:'id',autoIncrement:true});
-        s.createIndex('koushu','koushu',{unique:false});
-      }
-    };
-    req.onsuccess=e=>{db=e.target.result;res(db)};
-    req.onerror=()=>rej(req.error);
-  });
-}
-function dbAdd(photo){return new Promise((res,rej)=>{const t=db.transaction(STORE,'readwrite');const r=t.objectStore(STORE).add(photo);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+// ════════ DB (写真) ════════
+const DB_NAME='KoujiPhoto',DB_VER=1,STORE='photos';let db;
+function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open(DB_NAME,DB_VER);r.onupgradeneeded=e=>{const d=e.target.result;if(!d.objectStoreNames.contains(STORE)){d.createObjectStore(STORE,{keyPath:'id',autoIncrement:true})}};r.onsuccess=e=>{db=e.target.result;res(db)};r.onerror=()=>rej(r.error)})}
+function dbAdd(p){return new Promise((res,rej)=>{const t=db.transaction(STORE,'readwrite');const r=t.objectStore(STORE).add(p);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
 function dbGetAll(){return new Promise((res,rej)=>{const t=db.transaction(STORE,'readonly');const r=t.objectStore(STORE).getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
 function dbDelete(id){return new Promise((res,rej)=>{const t=db.transaction(STORE,'readwrite');const r=t.objectStore(STORE).delete(id);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)})}
 function dbClear(){return new Promise((res,rej)=>{const t=db.transaction(STORE,'readwrite');const r=t.objectStore(STORE).clear();r.onsuccess=()=>res();r.onerror=()=>rej(r.error)})}
 
-// ═══════════════════════════════════════
-//  STATE
-// ═══════════════════════════════════════
-let stream=null;let facingMode='environment';
-let boardVisible=true;
-let boardData={koujimei:'',koushu:'',sokuten:'',biko:''};
-let photos=[];let filterKoushu='all';let detailId=null;
+// ════════ MASTERS (工事マスタ / localStorage) ════════
+const MKEY='koujiMasters';
+let masters=[];
+function loadMasters(){
+  try{masters=JSON.parse(localStorage.getItem(MKEY))||[]}catch(e){masters=[]}
+  if(!masters.length){
+    masters=[{
+      id:'sample',name:'久喜駅補修工事',
+      koushu:[{name:'塗替塗装工',types:[
+        {name:'塗膜除去工',details:['掻き落とし','ブラスト']},
+        {name:'下塗工',details:[]}
+      ]}],
+      sokuten:['P1橋脚','P2橋脚','A1橋台'],
+      tekiyo:['施工前','施工中','施工後','使用材料','出来形']
+    }];
+    saveMasters();
+  }
+}
+function saveMasters(){localStorage.setItem(MKEY,JSON.stringify(masters))}
+function uid(){return 'k'+Date.now().toString(36)+Math.random().toString(36).slice(2,5)}
+function findKouji(id){return masters.find(k=>k.id===id)}
 
-// ═══════════════════════════════════════
-//  TABS
-// ═══════════════════════════════════════
+// ════════ STATE ════════
+let stream=null,facingMode='environment';
+let boardData={koujiId:'',koujimei:'',koushu:'',shubetsu:'',saibetsu:'',sokuten:'',tekiyo:''};
+let photos=[],filterKoushu='all',detailId=null;
+
+// ════════ TABS ════════
 document.querySelectorAll('.tab').forEach(t=>{
   t.addEventListener('click',()=>{
     document.querySelectorAll('.tab,.screen').forEach(x=>x.classList.remove('active'));
@@ -369,328 +348,394 @@ document.querySelectorAll('.tab').forEach(t=>{
     document.getElementById(t.dataset.screen).classList.add('active');
     if(t.dataset.screen==='galleryScreen')renderGallery();
     if(t.dataset.screen==='settingsScreen')renderStats();
+    if(t.dataset.screen==='masterScreen')renderMasters();
   });
 });
+function switchTab(screen){document.querySelectorAll('.tab').forEach(t=>{if(t.dataset.screen===screen)t.click()})}
 
-// ═══════════════════════════════════════
-//  CAMERA
-// ═══════════════════════════════════════
-const video=document.getElementById('video');
-const canvas=document.getElementById('canvas');
+// ════════ CAMERA ════════
+const video=document.getElementById('video'),canvas=document.getElementById('canvas');
 async function startCamera(){
-  if(stream){stream.getTracks().forEach(t=>t.stop())}
+  if(stream)stream.getTracks().forEach(t=>t.stop());
   try{
-    stream=await navigator.mediaDevices.getUserMedia({
-      video:{facingMode,width:{ideal:3840},height:{ideal:2160}},audio:false
-    });
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode,width:{ideal:3840},height:{ideal:2160}},audio:false});
     video.srcObject=stream;
   }catch(e){
-    try{
-      stream=await navigator.mediaDevices.getUserMedia({video:{facingMode},audio:false});
-      video.srcObject=stream;
-    }catch(e2){alert('カメラを起動できませんでした: '+e2.message)}
+    try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode},audio:false});video.srcObject=stream}
+    catch(e2){alert('カメラを起動できませんでした: '+e2.message)}
   }
 }
-document.getElementById('flipBtn').addEventListener('click',()=>{
-  facingMode=facingMode==='environment'?'user':'environment';
-  startCamera();
-});
+document.getElementById('flipBtn').addEventListener('click',()=>{facingMode=facingMode==='environment'?'user':'environment';startCamera()});
 
-// ═══════════════════════════════════════
-//  BOARD DRAG (touch & mouse)
-// ═══════════════════════════════════════
+// ════════ BOARD DRAG ════════
 const board=document.getElementById('boardOverlay');
-let dragging=false;let dragOffX=0;let dragOffY=0;
-function boardPointerDown(cx,cy){
-  dragging=true;board.classList.add('dragging');
-  const r=board.getBoundingClientRect();
-  dragOffX=cx-r.left;dragOffY=cy-r.top;
-}
-function boardPointerMove(cx,cy){
-  if(!dragging)return;
-  const wrap=document.getElementById('videoWrap').getBoundingClientRect();
-  let x=cx-wrap.left-dragOffX;
-  let y=cy-wrap.top-dragOffY;
-  x=Math.max(0,Math.min(x,wrap.width-board.offsetWidth));
-  y=Math.max(0,Math.min(y,wrap.height-board.offsetHeight));
-  board.style.left=x+'px';board.style.top=y+'px';
-  board.style.bottom='auto';
-}
-function boardPointerUp(){dragging=false;board.classList.remove('dragging')}
-board.addEventListener('mousedown',e=>{if(e.target.tagName!=='INPUT'){e.preventDefault();boardPointerDown(e.clientX,e.clientY)}});
-document.addEventListener('mousemove',e=>{boardPointerMove(e.clientX,e.clientY)});
-document.addEventListener('mouseup',boardPointerUp);
-board.addEventListener('touchstart',e=>{const t=e.touches[0];boardPointerDown(t.clientX,t.clientY)},{passive:true});
-document.addEventListener('touchmove',e=>{if(dragging){e.preventDefault();const t=e.touches[0];boardPointerMove(t.clientX,t.clientY)}},{passive:false});
-document.addEventListener('touchend',boardPointerUp);
+let dragging=false,dragOffX=0,dragOffY=0;
+function pDown(cx,cy){dragging=true;board.classList.add('dragging');const r=board.getBoundingClientRect();dragOffX=cx-r.left;dragOffY=cy-r.top}
+function pMove(cx,cy){if(!dragging)return;const w=document.getElementById('videoWrap').getBoundingClientRect();let x=cx-w.left-dragOffX,y=cy-w.top-dragOffY;x=Math.max(0,Math.min(x,w.width-board.offsetWidth));y=Math.max(0,Math.min(y,w.height-board.offsetHeight));board.style.left=x+'px';board.style.top=y+'px';board.style.bottom='auto'}
+function pUp(){dragging=false;board.classList.remove('dragging')}
+board.addEventListener('mousedown',e=>{if(e.target.tagName!=='INPUT'){e.preventDefault();pDown(e.clientX,e.clientY)}});
+document.addEventListener('mousemove',e=>pMove(e.clientX,e.clientY));
+document.addEventListener('mouseup',pUp);
+board.addEventListener('touchstart',e=>{const t=e.touches[0];pDown(t.clientX,t.clientY)},{passive:true});
+document.addEventListener('touchmove',e=>{if(dragging){e.preventDefault();const t=e.touches[0];pMove(t.clientX,t.clientY)}},{passive:false});
+document.addEventListener('touchend',pUp);
 
-// ═══════════════════════════════════════
-//  BOARD EDITOR
-// ═══════════════════════════════════════
+// ════════ BOARD EDITOR (連動select) ════════
 const boardEditor=document.getElementById('boardEditor');
-document.getElementById('boardToggleBtn').addEventListener('click',()=>{
-  boardEditor.classList.toggle('open');
-});
-document.getElementById('closeBoardEditor').addEventListener('click',()=>{
-  boardEditor.classList.remove('open');
+document.getElementById('boardToggleBtn').addEventListener('click',()=>boardEditor.classList.toggle('open'));
+document.getElementById('closeBoardEditor').addEventListener('click',()=>{boardEditor.classList.remove('open');updateBoardDisplay()});
+document.getElementById('goMasterLink').addEventListener('click',()=>{boardEditor.classList.remove('open');switchTab('masterScreen')});
+
+const selKouji=document.getElementById('sel-kouji'),selKoushu=document.getElementById('sel-koushu'),
+      selShubetsu=document.getElementById('sel-shubetsu'),selSaibetsu=document.getElementById('sel-saibetsu'),
+      selSokuten=document.getElementById('sel-sokuten'),selTekiyo=document.getElementById('sel-tekiyo'),
+      inSokuten=document.getElementById('in-sokuten'),inTekiyo=document.getElementById('in-tekiyo');
+
+function opt(v,label){const o=document.createElement('option');o.value=v;o.textContent=label||v;return o}
+
+// 工事selectを再構築（マスタ変更時・起動時）
+function populateKoujiSelect(){
+  const prev=boardData.koujiId;
+  selKouji.innerHTML='';
+  selKouji.appendChild(opt('','（工事を選択）'));
+  masters.forEach(k=>selKouji.appendChild(opt(k.id,k.name)));
+  document.getElementById('bedNoMaster').style.display=masters.length?'none':'block';
+  // 既存選択を維持
+  if(prev&&findKouji(prev)){selKouji.value=prev}else{selKouji.value=''}
+}
+
+selKouji.addEventListener('change',()=>{
+  boardData.koujiId=selKouji.value;
+  const k=findKouji(selKouji.value);
+  boardData.koujimei=k?k.name:'';
+  // 下位リセット
+  boardData.koushu=boardData.shubetsu=boardData.saibetsu='';
+  boardData.sokuten=boardData.tekiyo='';
+  // 工種select
+  selKoushu.innerHTML='';selKoushu.appendChild(opt('','―'));
+  if(k)k.koushu.forEach((ks,i)=>selKoushu.appendChild(opt(String(i),ks.name)));
+  selShubetsu.innerHTML='';selShubetsu.appendChild(opt('','―'));
+  selSaibetsu.innerHTML='';selSaibetsu.appendChild(opt('','―'));
+  document.getElementById('field-shubetsu').style.display='none';
+  document.getElementById('field-saibetsu').style.display='none';
+  // 測点・摘要
+  rebuildSokutenTekiyo(k);
+  if(k)localStorage.setItem('lastKoujiId',k.id);
   updateBoardDisplay();
 });
-['koujimei','koushu','sokuten','biko'].forEach(k=>{
-  document.getElementById('in-'+k).addEventListener('input',e=>{
-    boardData[k]=e.target.value;
-    updateBoardDisplay();
-  });
+
+selKoushu.addEventListener('change',()=>{
+  const k=findKouji(boardData.koujiId);
+  const ks=k&&selKoushu.value!==''?k.koushu[+selKoushu.value]:null;
+  boardData.koushu=ks?ks.name:'';
+  boardData.shubetsu=boardData.saibetsu='';
+  selShubetsu.innerHTML='';selShubetsu.appendChild(opt('','―'));
+  selSaibetsu.innerHTML='';selSaibetsu.appendChild(opt('','―'));
+  document.getElementById('field-saibetsu').style.display='none';
+  if(ks&&ks.types.length){
+    ks.types.forEach((tp,i)=>selShubetsu.appendChild(opt(String(i),tp.name)));
+    document.getElementById('field-shubetsu').style.display='block';
+  }else{
+    document.getElementById('field-shubetsu').style.display='none';
+  }
+  updateBoardDisplay();
 });
+
+selShubetsu.addEventListener('change',()=>{
+  const k=findKouji(boardData.koujiId);
+  const ks=k&&selKoushu.value!==''?k.koushu[+selKoushu.value]:null;
+  const tp=ks&&selShubetsu.value!==''?ks.types[+selShubetsu.value]:null;
+  boardData.shubetsu=tp?tp.name:'';
+  boardData.saibetsu='';
+  selSaibetsu.innerHTML='';selSaibetsu.appendChild(opt('','―'));
+  if(tp&&tp.details.length){
+    tp.details.forEach(d=>selSaibetsu.appendChild(opt(d,d)));
+    document.getElementById('field-saibetsu').style.display='block';
+  }else{
+    document.getElementById('field-saibetsu').style.display='none';
+  }
+  updateBoardDisplay();
+});
+
+selSaibetsu.addEventListener('change',()=>{boardData.saibetsu=selSaibetsu.value;updateBoardDisplay()});
+
+function rebuildSokutenTekiyo(k){
+  selSokuten.innerHTML='';selSokuten.appendChild(opt('','―'));
+  (k?k.sokuten:[]).forEach(s=>selSokuten.appendChild(opt(s,s)));
+  selSokuten.appendChild(opt('__manual__','＋ 手入力'));
+  selSokuten.value='';inSokuten.style.display='none';inSokuten.value='';
+  selTekiyo.innerHTML='';selTekiyo.appendChild(opt('','―'));
+  (k?k.tekiyo:[]).forEach(s=>selTekiyo.appendChild(opt(s,s)));
+  selTekiyo.appendChild(opt('__manual__','＋ 手入力'));
+  selTekiyo.value='';inTekiyo.style.display='none';inTekiyo.value='';
+}
+selSokuten.addEventListener('change',()=>{
+  if(selSokuten.value==='__manual__'){inSokuten.style.display='block';boardData.sokuten=inSokuten.value;inSokuten.focus()}
+  else{inSokuten.style.display='none';boardData.sokuten=selSokuten.value}
+  updateBoardDisplay();
+});
+inSokuten.addEventListener('input',()=>{boardData.sokuten=inSokuten.value;updateBoardDisplay()});
+selTekiyo.addEventListener('change',()=>{
+  if(selTekiyo.value==='__manual__'){inTekiyo.style.display='block';boardData.tekiyo=inTekiyo.value;inTekiyo.focus()}
+  else{inTekiyo.style.display='none';boardData.tekiyo=selTekiyo.value}
+  updateBoardDisplay();
+});
+inTekiyo.addEventListener('input',()=>{boardData.tekiyo=inTekiyo.value;updateBoardDisplay()});
+
+// ════════ 黒板表示 ════════
+function shubetsuLine(){
+  if(!boardData.shubetsu)return '―';
+  return boardData.saibetsu?boardData.shubetsu+' ＞ '+boardData.saibetsu:boardData.shubetsu;
+}
 function updateBoardDisplay(){
-  document.getElementById('bv-koujimei').textContent=boardData.koujimei||'（未入力）';
-  document.getElementById('bv-koushu').textContent=boardData.koushu||'（未入力）';
-  document.getElementById('bv-sokuten').textContent=boardData.sokuten||'（未入力）';
-  document.getElementById('bv-biko').textContent=boardData.biko||'―';
+  setBoardVal('bv-koujimei',boardData.koujimei||'（未選択）');
+  setBoardVal('bv-koushu',boardData.koushu||'―');
+  setBoardVal('bv-shubetsu',shubetsuLine());
+  setBoardVal('bv-sokuten',boardData.sokuten||'―');
+  setBoardVal('bv-tekiyo',boardData.tekiyo||'―');
+}
+function setBoardVal(id,text){
+  const el=document.getElementById(id);el.textContent=text;el.style.fontSize='';
+  let fs=11;
+  if(el.clientWidth>0){while(el.scrollWidth>el.clientWidth&&fs>6){fs-=0.5;el.style.fontSize=fs+'px'}}
 }
 
-// ═══════════════════════════════════════
-//  SHOOT
-// ═══════════════════════════════════════
+// ════════ SHOOT ════════
 document.getElementById('shotBtn').addEventListener('click',shoot);
+const CALS_MAX_EDGE=2000;
 async function shoot(){
   if(!stream)return;
-  const vt=video.videoWidth;const vh=video.videoHeight;
+  const vt=video.videoWidth,vh=video.videoHeight;
   if(!vt||!vh){showFlash('カメラ準備中...');return}
   canvas.width=vt;canvas.height=vh;
   const ctx=canvas.getContext('2d');
   ctx.drawImage(video,0,0,vt,vh);
 
-  // Draw board overlay onto canvas
-  const wrap=document.getElementById('videoWrap');
-  const vRect=video.getBoundingClientRect();
-  const bRect=board.getBoundingClientRect();
-  const scaleX=vt/vRect.width;const scaleY=vh/vRect.height;
-  const bx=(bRect.left-vRect.left)*scaleX;
-  const by=(bRect.top-vRect.top)*scaleY;
-  const bw=bRect.width*scaleX;
-  const bh=bRect.height*scaleY;
+  // cover補正で黒板位置
+  const vRect=video.getBoundingClientRect(),bRect=board.getBoundingClientRect();
+  const coverScale=Math.max(vRect.width/vt,vRect.height/vh);
+  const offX=(vt*coverScale-vRect.width)/2,offY=(vh*coverScale-vRect.height)/2;
+  const bx=((bRect.left-vRect.left)+offX)/coverScale,by=((bRect.top-vRect.top)+offY)/coverScale;
+  const bw=bRect.width/coverScale,bh=bRect.height/coverScale;
 
-  const fs=Math.max(14,bh*0.07);
+  const fs=Math.max(14,bh*0.045);
   ctx.save();
-  // board bg
-  ctx.fillStyle='#1a4a2e';
-  roundRect(ctx,bx,by,bw,bh,fs*0.3);
-  ctx.fill();
-  ctx.strokeStyle='#8fbc8f';ctx.lineWidth=Math.max(2,bw*0.008);
-  roundRect(ctx,bx,by,bw,bh,fs*0.3);
-  ctx.stroke();
+  ctx.fillStyle='#1a4a2e';roundRect(ctx,bx,by,bw,bh,fs*0.3);ctx.fill();
+  ctx.strokeStyle='#8fbc8f';ctx.lineWidth=Math.max(2,bw*0.008);roundRect(ctx,bx,by,bw,bh,fs*0.3);ctx.stroke();
 
-  const pad=fs*0.6;const lineH=fs*1.6;
-  ctx.font=`bold ${fs*0.65}px sans-serif`;
-  ctx.fillStyle='#aed9b8';
-  ctx.fillText('工事写真黒板',bx+pad,by+pad+fs*0.65);
+  const pad=fs*0.6,lineH=fs*1.55;
+  ctx.font=`bold ${fs*0.6}px sans-serif`;ctx.fillStyle='#aed9b8';
+  ctx.fillText('工事写真黒板',bx+pad,by+pad+fs*0.6);
 
-  const labels=['工事名','工　種','測　点','備　考'];
-  const vals=[boardData.koujimei||'（未入力）',boardData.koushu||'（未入力）',boardData.sokuten||'（未入力）',boardData.biko||'―'];
-  const startY=by+pad+fs*1.4;
+  const labels=['工事名','工　種','種別細別','測　点','摘　要'];
+  const vals=[boardData.koujimei||'（未選択）',boardData.koushu||'―',shubetsuLine(),boardData.sokuten||'―',boardData.tekiyo||'―'];
+  const startY=by+pad+fs*1.35;
   labels.forEach((lbl,i)=>{
     const ry=startY+i*lineH;
-    if(i>0){
-      ctx.strokeStyle='#4a7a5a';ctx.lineWidth=1;
-      ctx.beginPath();ctx.moveTo(bx+pad,ry-lineH*0.25);ctx.lineTo(bx+bw-pad,ry-lineH*0.25);ctx.stroke();
-    }
-    ctx.font=`${fs*0.65}px sans-serif`;ctx.fillStyle='#8fbc8f';
-    ctx.fillText(lbl,bx+pad,ry+fs*0.65);
-    ctx.font=`bold ${fs*0.8}px sans-serif`;ctx.fillStyle='#fff';
+    if(i>0){ctx.strokeStyle='#4a7a5a';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(bx+pad,ry-lineH*0.28);ctx.lineTo(bx+bw-pad,ry-lineH*0.28);ctx.stroke()}
+    ctx.font=`${fs*0.6}px sans-serif`;ctx.fillStyle='#8fbc8f';
+    ctx.fillText(lbl,bx+pad,ry+fs*0.6);
+    ctx.font=`bold ${fs*0.75}px sans-serif`;
     const labelW=ctx.measureText(lbl).width+pad*0.5;
-    ctx.fillText(vals[i],bx+pad+labelW+pad*0.8,ry+fs*0.8);
+    const valX=bx+pad+labelW+pad*0.8,valMaxW=bx+bw-pad-valX;
+    let valFs=fs*0.75;ctx.font=`bold ${valFs}px sans-serif`;
+    while(ctx.measureText(vals[i]).width>valMaxW&&valFs>fs*0.32){valFs-=fs*0.02;ctx.font=`bold ${valFs}px sans-serif`}
+    ctx.fillStyle='#fff';ctx.fillText(vals[i],valX,ry+fs*0.72);
   });
   ctx.restore();
 
-  const dataUrl=canvas.toDataURL('image/jpeg',0.92);
-  const now=new Date();
-  const photo={
-    dataUrl,
-    koujimei:boardData.koujimei,
-    koushu:boardData.koushu,
-    sokuten:boardData.sokuten,
-    biko:boardData.biko,
-    date:now.toISOString()
-  };
-  await dbAdd(photo);
-  photos=await dbGetAll();
-  updateCount();
-  showFlash('撮影しました ✓');
-}
+  // CALSリサイズ
+  let outW=vt,outH=vh;const longEdge=Math.max(vt,vh);
+  if(longEdge>CALS_MAX_EDGE){const s=CALS_MAX_EDGE/longEdge;outW=Math.round(vt*s);outH=Math.round(vh*s)}
+  let outCanvas=canvas;
+  if(outW!==vt||outH!==vh){outCanvas=document.createElement('canvas');outCanvas.width=outW;outCanvas.height=outH;const o=outCanvas.getContext('2d');o.imageSmoothingQuality='high';o.drawImage(canvas,0,0,outW,outH)}
+  const dataUrl=outCanvas.toDataURL('image/jpeg',0.85);
+  const megaPixel=outW*outH/1000000;
 
-function roundRect(ctx,x,y,w,h,r){
-  ctx.beginPath();
-  ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.arcTo(x+w,y,x+w,y+r,r);
-  ctx.lineTo(x+w,y+h-r);ctx.arcTo(x+w,y+h,x+w-r,y+h,r);
-  ctx.lineTo(x+r,y+h);ctx.arcTo(x,y+h,x,y+h-r,r);
-  ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);
-  ctx.closePath();
+  const photo={dataUrl,width:outW,height:outH,megaPixel:+megaPixel.toFixed(2),
+    koujimei:boardData.koujimei,koushu:boardData.koushu,shubetsu:boardData.shubetsu,
+    saibetsu:boardData.saibetsu,sokuten:boardData.sokuten,tekiyo:boardData.tekiyo,
+    date:new Date().toISOString()};
+  await dbAdd(photo);photos=await dbGetAll();updateCount();
+  showFlash(`撮影 ✓ ${outW}×${outH} (${Math.round(megaPixel*100)}万画素)`);
 }
+function roundRect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.arcTo(x+w,y,x+w,y+r,r);ctx.lineTo(x+w,y+h-r);ctx.arcTo(x+w,y+h,x+w-r,y+h,r);ctx.lineTo(x+r,y+h);ctx.arcTo(x,y+h,x,y+h-r,r);ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);ctx.closePath()}
+function showFlash(m){const e=document.getElementById('flashMsg');e.textContent=m;e.style.opacity=1;setTimeout(()=>e.style.opacity=0,1300)}
+function updateCount(){document.getElementById('countBadge').textContent=photos.length+'枚'}
 
-function showFlash(msg){
-  const el=document.getElementById('flashMsg');
-  el.textContent=msg;el.style.opacity=1;
-  setTimeout(()=>{el.style.opacity=0},1200);
-}
-function updateCount(){
-  document.getElementById('countBadge').textContent=photos.length+'枚';
-}
-
-// ═══════════════════════════════════════
-//  GALLERY
-// ═══════════════════════════════════════
+// ════════ GALLERY ════════
 function renderGallery(){
-  const grid=document.getElementById('photoGrid');
-  const filterWrap=document.getElementById('filterWrap');
-
-  // Build filter chips
-  const koushuSet=new Set(photos.map(p=>p.koushu).filter(Boolean));
-  filterWrap.innerHTML='<div class="filter-chip'+(filterKoushu==='all'?' active':'')+'" data-filter="all">すべて</div>';
-  koushuSet.forEach(k=>{
-    const chip=document.createElement('div');
-    chip.className='filter-chip'+(filterKoushu===k?' active':'');
-    chip.dataset.filter=k;chip.textContent=k;
-    filterWrap.appendChild(chip);
-  });
-  filterWrap.querySelectorAll('.filter-chip').forEach(c=>{
-    c.addEventListener('click',()=>{
-      filterKoushu=c.dataset.filter;
-      renderGallery();
-    });
-  });
-
-  const filtered=filterKoushu==='all'?photos:photos.filter(p=>p.koushu===filterKoushu);
+  const grid=document.getElementById('photoGrid'),fw=document.getElementById('filterWrap');
+  const set=new Set(photos.map(p=>p.koushu).filter(Boolean));
+  fw.innerHTML='<div class="filter-chip'+(filterKoushu==='all'?' active':'')+'" data-filter="all">すべて</div>';
+  set.forEach(k=>{const c=document.createElement('div');c.className='filter-chip'+(filterKoushu===k?' active':'');c.dataset.filter=k;c.textContent=k;fw.appendChild(c)});
+  fw.querySelectorAll('.filter-chip').forEach(c=>c.addEventListener('click',()=>{filterKoushu=c.dataset.filter;renderGallery()}));
+  const list=filterKoushu==='all'?photos:photos.filter(p=>p.koushu===filterKoushu);
   grid.innerHTML='';
-  if(!filtered.length){
-    grid.innerHTML='<div class="empty-gallery">📷 まだ写真がありません</div>';return;
-  }
-  filtered.slice().reverse().forEach(p=>{
-    const d=document.createElement('div');d.className='photo-card';
-    const dt=new Date(p.date);
-    d.innerHTML=`<img class="photo-thumb" src="${p.dataUrl}" loading="lazy">
-    <div class="photo-meta">
-      <div class="photo-type">${p.koushu||'工種なし'}</div>
-      <div class="photo-point">${p.sokuten||'測点なし'}</div>
-      <div class="photo-date">${fmt(dt)}</div>
-    </div>`;
-    d.addEventListener('click',()=>openDetail(p.id));
-    grid.appendChild(d);
+  if(!list.length){grid.innerHTML='<div class="empty-gallery">📷 まだ写真がありません</div>';return}
+  list.slice().reverse().forEach(p=>{
+    const d=document.createElement('div');d.className='photo-card';const dt=new Date(p.date);
+    d.innerHTML=`<img class="photo-thumb" src="${p.dataUrl}" loading="lazy"><div class="photo-meta"><div class="photo-type">${esc(p.koushu||'工種なし')}</div><div class="photo-point">${esc(p.sokuten||'測点なし')}</div><div class="photo-date">${fmt(dt)}</div></div>`;
+    d.addEventListener('click',()=>openDetail(p.id));grid.appendChild(d);
   });
 }
 function fmt(d){return`${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`}
 function pad(n){return String(n).padStart(2,'0')}
+function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 
-// ═══════════════════════════════════════
-//  DETAIL MODAL
-// ═══════════════════════════════════════
+// ════════ DETAIL ════════
 function openDetail(id){
-  const p=photos.find(x=>x.id===id);if(!p)return;
-  detailId=id;
+  const p=photos.find(x=>x.id===id);if(!p)return;detailId=id;
   document.getElementById('detailImg').src=p.dataUrl;
   document.getElementById('dm-koujimei').textContent=p.koujimei||'―';
   document.getElementById('dm-koushu').textContent=p.koushu||'―';
+  document.getElementById('dm-shubetsu').textContent=p.shubetsu||'―';
+  document.getElementById('dm-saibetsu').textContent=p.saibetsu||'―';
   document.getElementById('dm-sokuten').textContent=p.sokuten||'―';
-  document.getElementById('dm-biko').textContent=p.biko||'―';
+  document.getElementById('dm-tekiyo').textContent=p.tekiyo||'―';
+  const pxText=p.width?`${p.width}×${p.height}（${Math.round((p.megaPixel||0)*100)}万画素）`:'―';
+  const ok=p.megaPixel&&p.megaPixel>=1&&p.megaPixel<=3;
+  document.getElementById('dm-pixel').innerHTML=pxText+(p.width?(ok?' <span style="color:#3da876">✓CALS適合</span>':' <span style="color:#d9a93a">▲要確認</span>'):'');
   document.getElementById('dm-date').textContent=fmt(new Date(p.date));
   document.getElementById('detailModal').classList.add('open');
 }
-document.getElementById('detailClose').addEventListener('click',()=>{
-  document.getElementById('detailModal').classList.remove('open');
-});
-document.getElementById('detailDl').addEventListener('click',()=>{
-  const p=photos.find(x=>x.id===detailId);if(!p)return;
-  const a=document.createElement('a');
-  a.href=p.dataUrl;
-  a.download=buildFilename(p);
-  a.click();
-});
-document.getElementById('detailDel').addEventListener('click',async()=>{
-  if(!confirm('この写真を削除しますか？'))return;
-  await dbDelete(detailId);
-  photos=await dbGetAll();
-  updateCount();
-  document.getElementById('detailModal').classList.remove('open');
-  renderGallery();
-});
-document.getElementById('detailModal').addEventListener('click',e=>{
-  if(e.target===e.currentTarget)document.getElementById('detailModal').classList.remove('open');
-});
+document.getElementById('detailClose').addEventListener('click',()=>document.getElementById('detailModal').classList.remove('open'));
+document.getElementById('detailDl').addEventListener('click',()=>{const p=photos.find(x=>x.id===detailId);if(!p)return;const a=document.createElement('a');a.href=p.dataUrl;a.download=buildFilename(p);a.click()});
+document.getElementById('detailDel').addEventListener('click',async()=>{if(!confirm('この写真を削除しますか？'))return;await dbDelete(detailId);photos=await dbGetAll();updateCount();document.getElementById('detailModal').classList.remove('open');renderGallery()});
+document.getElementById('detailModal').addEventListener('click',e=>{if(e.target===e.currentTarget)document.getElementById('detailModal').classList.remove('open')});
+function buildFilename(p){const dt=new Date(p.date);const base=`${yyyymmdd(dt)}_${p.koushu||'未分類'}_${p.sokuten||''}`.replace(/[\/\\:*?"<>|]/g,'_');return base+'.jpg'}
+function yyyymmdd(d){return`${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}`}
 
-// ═══════════════════════════════════════
-//  ZIP DOWNLOAD
-// ═══════════════════════════════════════
+// ════════ ZIP (工種/種別/細別 階層) ════════
 document.getElementById('dlAllBtn').addEventListener('click',async()=>{
   if(!photos.length){alert('写真がありません');return}
-  const btn=document.getElementById('dlAllBtn');
-  btn.textContent='📦 生成中...';btn.disabled=true;
+  const btn=document.getElementById('dlAllBtn');btn.textContent='📦 生成中...';btn.disabled=true;
   try{
-    const zip=new JSZip();
-    const counters={};
+    const zip=new JSZip(),counters={};
     photos.forEach(p=>{
-      const folder=p.koushu||'未分類';
+      const parts=[p.koushu,p.shubetsu,p.saibetsu].filter(Boolean).map(s=>s.replace(/[\/\\:*?"<>|]/g,'_'));
+      const folderPath=parts.length?parts.join('/'):'未分類';
       const dt=new Date(p.date);
-      if(!counters[folder])counters[folder]=0;
-      counters[folder]++;
-      const fname=`${yyyymmdd(dt)}_${pad(counters[folder])}.jpg`;
-      const base64=p.dataUrl.split(',')[1];
-      zip.folder(folder).file(fname,base64,{base64:true});
+      counters[folderPath]=(counters[folderPath]||0)+1;
+      const fname=`${yyyymmdd(dt)}_${pad(counters[folderPath])}.jpg`;
+      zip.folder(folderPath).file(fname,p.dataUrl.split(',')[1],{base64:true});
     });
     const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE'});
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');
+    const url=URL.createObjectURL(blob),a=document.createElement('a');
     a.href=url;a.download=`工事写真_${yyyymmdd(new Date())}.zip`;a.click();
     setTimeout(()=>URL.revokeObjectURL(url),5000);
   }finally{btn.textContent='📦 ZIP出力';btn.disabled=false}
 });
-function buildFilename(p){
-  const dt=new Date(p.date);
-  const base=`${yyyymmdd(dt)}_${p.koushu||'未分類'}_${p.sokuten||''}`.replace(/[\/\\:*?"<>|]/g,'_');
-  return base+'.jpg';
-}
-function yyyymmdd(d){return`${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}`}
 
-// ═══════════════════════════════════════
-//  SETTINGS
-// ═══════════════════════════════════════
-document.getElementById('def-koujimei').addEventListener('change',e=>{
-  localStorage.setItem('def_koujimei',e.target.value);
+// ════════ MASTER 管理 ════════
+const masterList=document.getElementById('masterList');
+let openKoujiIds=new Set();
+function renderMasters(){
+  if(!masters.length){masterList.innerHTML='<div class="m-empty">工事がまだありません。<br>下の欄から追加してください。</div>';populateKoujiSelect();return}
+  masterList.innerHTML=masters.map(k=>koujiCardHTML(k)).join('');
+  populateKoujiSelect();
+}
+function koujiCardHTML(k){
+  const open=openKoujiIds.has(k.id)?' open':'';
+  const koushuHTML=k.koushu.map((ks,ki)=>`
+    <div class="ks-item">
+      <div class="ks-row"><span class="ks-name">${esc(ks.name)}</span>
+        <button class="icon-btn" data-act="delKoushu" data-ki="${ki}">×</button></div>
+      <div class="type-list">
+        ${ks.types.map((tp,ti)=>`
+          <div class="tp-row"><span class="tp-name">・${esc(tp.name)}</span>
+            <button class="icon-btn" data-act="delType" data-ki="${ki}" data-ti="${ti}">×</button></div>
+          <div class="detail-list">
+            ${tp.details.map((d,di)=>`<span class="detail-chip">${esc(d)}<button data-act="delDetail" data-ki="${ki}" data-ti="${ti}" data-di="${di}">×</button></span>`).join('')}
+            <span class="add-inline"><input placeholder="細別を追加" data-ki="${ki}" data-ti="${ti}"><button data-act="addDetail" data-ki="${ki}" data-ti="${ti}">＋</button></span>
+          </div>`).join('')}
+        <div class="add-inline"><input placeholder="種別を追加" data-ki="${ki}"><button data-act="addType" data-ki="${ki}">＋種別</button></div>
+      </div>
+    </div>`).join('');
+  return `<div class="kouji-card${open}" data-kid="${k.id}">
+    <div class="kouji-head" data-act="toggle">
+      <span class="kouji-name">${esc(k.name)}</span>
+      <span class="kouji-head-right"><span class="kouji-toggle">▸</span>
+        <button class="icon-btn" data-act="delKouji">🗑</button></span>
+    </div>
+    <div class="kouji-body">
+      <div class="m-section-title">工種 → 種別 → 細別</div>
+      ${koushuHTML}
+      <div class="add-inline"><input placeholder="工種を追加"><button data-act="addKoushu">＋工種</button></div>
+      <div class="m-section-title">測点</div>
+      <div class="chip-list">
+        ${k.sokuten.map((s,si)=>`<span class="chip">${esc(s)}<button data-act="delSokuten" data-si="${si}">×</button></span>`).join('')}
+        <span class="add-inline"><input placeholder="測点を追加" data-field="sokuten"><button data-act="addSokuten">＋</button></span>
+      </div>
+      <div class="m-section-title">摘要プリセット</div>
+      <div class="chip-list">
+        ${k.tekiyo.map((s,si)=>`<span class="chip">${esc(s)}<button data-act="delTekiyo" data-si="${si}">×</button></span>`).join('')}
+        <span class="add-inline"><input placeholder="摘要を追加" data-field="tekiyo"><button data-act="addTekiyo">＋</button></span>
+      </div>
+    </div>
+  </div>`;
+}
+// イベント委譲
+masterList.addEventListener('click',e=>{
+  const btn=e.target.closest('[data-act]');if(!btn)return;
+  const card=btn.closest('[data-kid]');if(!card)return;
+  const k=findKouji(card.dataset.kid);if(!k)return;
+  const act=btn.dataset.act,ki=btn.dataset.ki,ti=btn.dataset.ti,di=btn.dataset.di,si=btn.dataset.si;
+  const inputVal=sib=>{const inp=sib&&sib.previousElementSibling;return inp&&inp.value.trim()};
+  if(act==='toggle'){if(openKoujiIds.has(k.id))openKoujiIds.delete(k.id);else openKoujiIds.add(k.id);renderMasters();return}
+  if(act==='delKouji'){if(!confirm(`「${k.name}」を削除しますか？`))return;masters=masters.filter(x=>x.id!==k.id);openKoujiIds.delete(k.id)}
+  else if(act==='addKoushu'){const v=inputVal(btn);if(!v)return;k.koushu.push({name:v,types:[]})}
+  else if(act==='delKoushu'){k.koushu.splice(+ki,1)}
+  else if(act==='addType'){const v=inputVal(btn);if(!v)return;k.koushu[+ki].types.push({name:v,details:[]})}
+  else if(act==='delType'){k.koushu[+ki].types.splice(+ti,1)}
+  else if(act==='addDetail'){const v=inputVal(btn);if(!v)return;k.koushu[+ki].types[+ti].details.push(v)}
+  else if(act==='delDetail'){k.koushu[+ki].types[+ti].details.splice(+di,1)}
+  else if(act==='addSokuten'){const v=inputVal(btn);if(!v)return;k.sokuten.push(v)}
+  else if(act==='delSokuten'){k.sokuten.splice(+si,1)}
+  else if(act==='addTekiyo'){const v=inputVal(btn);if(!v)return;k.tekiyo.push(v)}
+  else if(act==='delTekiyo'){k.tekiyo.splice(+si,1)}
+  else return;
+  saveMasters();renderMasters();
 });
+// Enterキーで追加
+masterList.addEventListener('keydown',e=>{
+  if(e.key!=='Enter')return;const inp=e.target;if(inp.tagName!=='INPUT')return;
+  const btn=inp.parentElement.querySelector('button[data-act]');if(btn){e.preventDefault();btn.click()}
+});
+document.getElementById('addKoujiBtn').addEventListener('click',()=>{
+  const inp=document.getElementById('newKoujiName'),v=inp.value.trim();if(!v)return;
+  const k={id:uid(),name:v,koushu:[],sokuten:[],tekiyo:[]};
+  masters.push(k);openKoujiIds.add(k.id);saveMasters();inp.value='';renderMasters();
+});
+document.getElementById('newKoujiName').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();document.getElementById('addKoujiBtn').click()}});
+
+// ════════ SETTINGS ════════
 document.getElementById('clearAllBtn').addEventListener('click',async()=>{
   if(!confirm('全写真を削除します。元に戻せません。'))return;
-  await dbClear();
-  photos=[];updateCount();renderStats();
-  alert('削除しました');
+  await dbClear();photos=[];updateCount();renderStats();alert('削除しました');
 });
 function renderStats(){
+  document.getElementById('statKouji').textContent=masters.length+'件';
   document.getElementById('statCount').textContent=photos.length+'枚';
   const bytes=photos.reduce((s,p)=>s+p.dataUrl.length*0.75,0);
   document.getElementById('statSize').textContent=(bytes/1024/1024).toFixed(1)+' MB';
+  const cr=document.getElementById('statCamRes');if(cr&&video.videoWidth)cr.textContent=`${video.videoWidth}×${video.videoHeight}`;
 }
 
-// ═══════════════════════════════════════
-//  INIT
-// ═══════════════════════════════════════
+// ════════ INIT ════════
 async function init(){
-  await openDB();
-  photos=await dbGetAll();
-
-  // load default koujimei
-  const defK=localStorage.getItem('def_koujimei')||'';
-  if(defK){
-    boardData.koujimei=defK;
-    document.getElementById('in-koujimei').value=defK;
-    updateBoardDisplay();
-  }
-  document.getElementById('def-koujimei').value=defK;
-
+  await openDB();photos=await dbGetAll();loadMasters();
+  populateKoujiSelect();
+  // 前回の工事を復元
+  const last=localStorage.getItem('lastKoujiId');
+  if(last&&findKouji(last)){selKouji.value=last;selKouji.dispatchEvent(new Event('change'))}
   updateCount();
   await startCamera();
   document.getElementById('loading').style.display='none';
   document.getElementById('app').style.display='flex';
+  requestAnimationFrame(updateBoardDisplay);
 }
-init().catch(e=>{
-  document.getElementById('loading').innerHTML='<p style="color:#d9534f">起動エラー: '+e.message+'</p>';
-});
+init().catch(e=>{document.getElementById('loading').innerHTML='<p style="color:#d9534f">起動エラー: '+e.message+'</p>'});
 </script>
 </body>
 </html>
