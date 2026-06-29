@@ -30,6 +30,9 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 #videoWrap{position:absolute;inset:0;overflow:hidden;display:flex;align-items:center;justify-content:center}
 #video{width:100%;height:100%;object-fit:cover}
 #canvas{display:none}
+#guideFrame{position:absolute;border:1.5px solid rgba(255,255,255,.85);border-radius:2px;
+  box-shadow:0 0 0 9999px rgba(0,0,0,.42);pointer-events:none;z-index:6;box-sizing:border-box}
+#guideFrame::after{content:"4:3 (1280×960)";position:absolute;top:4px;left:6px;font-size:9px;color:rgba(255,255,255,.7);letter-spacing:.05em}
 
 /* 黒板 */
 #boardOverlay{
@@ -195,6 +198,7 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
     <div id="videoWrap">
       <video id="video" autoplay playsinline muted></video>
       <canvas id="canvas"></canvas>
+      <div id="guideFrame"></div>
     </div>
     <div id="boardOverlay">
       <div class="board-title">工事写真黒板</div>
@@ -255,7 +259,7 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
     </div>
     <div class="screen-body">
       <div class="setting-group">
-        <div class="setting-row"><div><div class="setting-label">CALS基準</div><div class="setting-sub">長辺2000pxに自動リサイズ（約300万画素以下）</div></div><div class="stat-val" style="font-size:13px;color:var(--accent2)">✓ 準拠</div></div>
+        <div class="setting-row"><div><div class="setting-label">CALS基準</div><div class="setting-sub">1280×960・4:3・500KB以下に自動調整</div></div><div class="stat-val" style="font-size:13px;color:var(--accent2)">✓ 準拠</div></div>
         <div class="setting-row"><div><div class="setting-label">カメラ実解像度</div><div class="setting-sub">端末が出力できる最大値</div></div><div class="stat-val" id="statCamRes" style="font-size:13px">―</div></div>
       </div>
       <div class="setting-group">
@@ -376,11 +380,21 @@ async function startCamera(){
   catch(e){try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode},audio:false});video.srcObject=stream}catch(e2){alert('カメラを起動できませんでした: '+e2.message)}}
 }
 
-// ════════ 黒板ドラッグ ════════
+// ════════ 4:3 ガイド枠 ════════
+function computeGuideRect(){
+  const w=videoWrap.getBoundingClientRect();const W=w.width,H=w.height;
+  let gw,gh;
+  if(W>=H){gh=H;gw=gh*4/3;if(gw>W){gw=W;gh=gw*3/4}}      // 横画面 → 4:3横
+  else{gw=W;gh=gw*4/3;if(gh>H){gh=H;gw=gh*3/4}}            // 縦画面 → 3:4縦
+  return {x:(W-gw)/2,y:(H-gh)/2,w:gw,h:gh};
+}
+function updateGuide(){const g=computeGuideRect();const f=document.getElementById('guideFrame');if(!f)return;f.style.left=g.x+'px';f.style.top=g.y+'px';f.style.width=g.w+'px';f.style.height=g.h+'px'}
+
+// ════════ 黒板ドラッグ（枠内に制限）════════
 const board=document.getElementById('boardOverlay'),videoWrap=document.getElementById('videoWrap');
 let bDrag=false,bOffX=0,bOffY=0;
 function bDown(cx,cy){bDrag=true;board.classList.add('dragging');const r=board.getBoundingClientRect();bOffX=cx-r.left;bOffY=cy-r.top}
-function bMove(cx,cy){if(!bDrag)return;const w=videoWrap.getBoundingClientRect();let x=cx-w.left-bOffX,y=cy-w.top-bOffY;x=Math.max(0,Math.min(x,w.width-board.offsetWidth));y=Math.max(0,Math.min(y,w.height-board.offsetHeight));board.style.left=x+'px';board.style.top=y+'px'}
+function bMove(cx,cy){if(!bDrag)return;const w=videoWrap.getBoundingClientRect();const g=computeGuideRect();let x=cx-w.left-bOffX,y=cy-w.top-bOffY;x=Math.max(g.x,Math.min(x,g.x+g.w-board.offsetWidth));y=Math.max(g.y,Math.min(y,g.y+g.h-board.offsetHeight));board.style.left=x+'px';board.style.top=y+'px'}
 function bUp(){bDrag=false;board.classList.remove('dragging')}
 board.addEventListener('mousedown',e=>{if(e.target.tagName!=='INPUT'){e.preventDefault();bDown(e.clientX,e.clientY)}});
 board.addEventListener('touchstart',e=>{const t=e.touches[0];bDown(t.clientX,t.clientY)},{passive:true});
@@ -388,10 +402,18 @@ board.addEventListener('touchstart',e=>{const t=e.touches[0];bDown(t.clientX,t.c
 // ════════ シャッター ドラッグ+タップ ════════
 const shotBtn=document.getElementById('shotBtn');
 let sDrag=false,sMoved=false,sOffX=0,sOffY=0,sStartX=0,sStartY=0;
-function loadShotPos(){
-  try{const p=JSON.parse(localStorage.getItem('shotPos'));
-    if(p&&typeof p.left==='number'){shotBtn.classList.add('placed');shotBtn.style.left=p.left+'px';shotBtn.style.top=p.top+'px'}
-  }catch(e){}
+// 位置は videoWrap に対する割合(xr,yr)で保存 → 向きが変わっても画面内に追従
+function saveShotPos(){
+  const w=videoWrap.getBoundingClientRect(),r=shotBtn.getBoundingClientRect();
+  if(!w.width)return;
+  localStorage.setItem('shotPos',JSON.stringify({xr:(r.left-w.left)/w.width,yr:(r.top-w.top)/w.height}));
+}
+function applyShotPos(){
+  let p;try{p=JSON.parse(localStorage.getItem('shotPos'))}catch(e){}
+  if(!p||typeof p.xr!=='number')return; // 未設定ならデフォルト(下中央)のまま
+  const w=videoWrap.getBoundingClientRect();if(!w.width)return;
+  let[x,y]=clampShot(p.xr*w.width,p.yr*w.height);
+  shotBtn.classList.add('placed');shotBtn.style.left=x+'px';shotBtn.style.top=y+'px';
 }
 function clampShot(x,y){const w=videoWrap.getBoundingClientRect();return[Math.max(4,Math.min(x,w.width-shotBtn.offsetWidth-4)),Math.max(4,Math.min(y,w.height-shotBtn.offsetHeight-4))]}
 function sDown(cx,cy){sDrag=true;sMoved=false;sStartX=cx;sStartY=cy;const r=shotBtn.getBoundingClientRect();sOffX=cx-r.left;sOffY=cy-r.top}
@@ -402,8 +424,7 @@ function sMove(cx,cy){
 }
 function sUp(){
   if(!sDrag)return;sDrag=false;shotBtn.classList.remove('dragmode');
-  if(!sMoved){shoot()}
-  else{localStorage.setItem('shotPos',JSON.stringify({left:parseFloat(shotBtn.style.left),top:parseFloat(shotBtn.style.top)}))}
+  if(!sMoved){shoot()}else{saveShotPos()}
 }
 shotBtn.addEventListener('mousedown',e=>{e.preventDefault();sDown(e.clientX,e.clientY)});
 shotBtn.addEventListener('touchstart',e=>{e.preventDefault();const t=e.touches[0];sDown(t.clientX,t.clientY)},{passive:false});
@@ -421,6 +442,20 @@ document.getElementById('resetShotPos').addEventListener('click',()=>{
   localStorage.removeItem('shotPos');shotBtn.classList.remove('placed');
   shotBtn.style.left='';shotBtn.style.top='';alert('シャッター位置をリセットしました');showScreen('camScreen');
 });
+
+// 向き変更・リサイズ時：ガイド枠更新、シャッター再配置、黒板を枠内に
+function reflowOverlays(){
+  updateGuide();
+  applyShotPos();
+  const g=computeGuideRect();if(!g.w)return;
+  let x=board.style.left?parseFloat(board.style.left):g.x+12;
+  let y=board.style.top?parseFloat(board.style.top):g.y+12;
+  x=Math.max(g.x,Math.min(x,g.x+g.w-board.offsetWidth));
+  y=Math.max(g.y,Math.min(y,g.y+g.h-board.offsetHeight));
+  board.style.left=x+'px';board.style.top=y+'px';
+}
+window.addEventListener('resize',reflowOverlays);
+window.addEventListener('orientationchange',()=>setTimeout(reflowOverlays,300));
 
 // ════════ 黒板編集 連動select ════════
 const boardEditor=document.getElementById('boardEditor');
@@ -515,14 +550,28 @@ async function shoot(){
     ctx.fillStyle='#fff';ctx.fillText(vals[i],valX,ry+fs*0.72);
   });
   ctx.restore();
-  let outW=vt,outH=vh;const longEdge=Math.max(vt,vh);
-  if(longEdge>CALS_MAX_EDGE){const s=CALS_MAX_EDGE/longEdge;outW=Math.round(vt*s);outH=Math.round(vh*s)}
-  let outCanvas=canvas;
-  if(outW!==vt||outH!==vh){outCanvas=document.createElement('canvas');outCanvas.width=outW;outCanvas.height=outH;const o=outCanvas.getContext('2d');o.imageSmoothingQuality='high';o.drawImage(canvas,0,0,outW,outH)}
-  const dataUrl=outCanvas.toDataURL('image/jpeg',0.85);const megaPixel=outW*outH/1000000;
-  const photo={dataUrl,width:outW,height:outH,megaPixel:+megaPixel.toFixed(2),koujimei:boardData.koujimei,koushu:boardData.koushu,shubetsu:boardData.shubetsu,saibetsu:boardData.saibetsu,sokuten:boardData.sokuten,tekiyo:boardData.tekiyo,date:new Date().toISOString()};
+  // ガイド枠(4:3)を映像座標へ変換してcrop → 1280×960(横) or 960×1280(縦)
+  const g=computeGuideRect();
+  let cropX=(g.x+offX)/coverScale,cropY=(g.y+offY)/coverScale,cropW=g.w/coverScale,cropH=g.h/coverScale;
+  cropX=Math.max(0,Math.min(cropX,vt));cropY=Math.max(0,Math.min(cropY,vh));
+  cropW=Math.min(cropW,vt-cropX);cropH=Math.min(cropH,vh-cropY);
+  const land=g.w>=g.h;const outW=land?1280:960,outH=land?960:1280;
+  const out=document.createElement('canvas');out.width=outW;out.height=outH;
+  const octx=out.getContext('2d');octx.imageSmoothingQuality='high';
+  octx.drawImage(canvas,cropX,cropY,cropW,cropH,0,0,outW,outH);
+  // 500KB以下になるまでJPEG品質を下げる
+  let q=0.92,dataUrl,bytes;
+  while(true){
+    dataUrl=out.toDataURL('image/jpeg',q);
+    bytes=Math.round((dataUrl.length-(dataUrl.indexOf(',')+1))*3/4);
+    if(bytes<=500*1024||q<=0.4)break;
+    q-=0.04;
+  }
+  const photo={dataUrl,width:outW,height:outH,bytes,megaPixel:+(outW*outH/1000000).toFixed(2),
+    koujimei:boardData.koujimei,koushu:boardData.koushu,shubetsu:boardData.shubetsu,saibetsu:boardData.saibetsu,
+    sokuten:boardData.sokuten,tekiyo:boardData.tekiyo,date:new Date().toISOString()};
   await dbAdd(photo);photos=await dbGetAll();updateCount();
-  showFlash(`撮影 ✓ ${outW}×${outH} (${Math.round(megaPixel*100)}万画素)`);
+  showFlash(`撮影 ✓ ${outW}×${outH} / ${Math.round(bytes/1024)}KB`);
 }
 function roundRect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.arcTo(x+w,y,x+w,y+r,r);ctx.lineTo(x+w,y+h-r);ctx.arcTo(x+w,y+h,x+w-r,y+h,r);ctx.lineTo(x+r,y+h);ctx.arcTo(x,y+h,x,y+h-r,r);ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);ctx.closePath()}
 function showFlash(m){const e=document.getElementById('flashMsg');e.textContent=m;e.style.opacity=1;setTimeout(()=>e.style.opacity=0,1300)}
@@ -556,9 +605,12 @@ function openDetail(id){
   document.getElementById('dm-saibetsu').textContent=p.saibetsu||'―';
   document.getElementById('dm-sokuten').textContent=p.sokuten||'―';
   document.getElementById('dm-tekiyo').textContent=p.tekiyo||'―';
-  const pxText=p.width?`${p.width}×${p.height}（${Math.round((p.megaPixel||0)*100)}万画素）`:'―';
-  const ok=p.megaPixel&&p.megaPixel>=1&&p.megaPixel<=3;
-  document.getElementById('dm-pixel').innerHTML=pxText+(p.width?(ok?' <span style="color:#3da876">✓CALS適合</span>':' <span style="color:#d9a93a">▲要確認</span>'):'');
+  const kb=p.bytes?Math.round(p.bytes/1024):null;
+  const pxText=p.width?`${p.width}×${p.height}`+(kb!==null?`・${kb}KB`:''):'―';
+  const okSize=(p.width===1280&&p.height===960)||(p.width===960&&p.height===1280);
+  const okBytes=p.bytes?p.bytes<=500*1024:true;
+  const ok=okSize&&okBytes;
+  document.getElementById('dm-pixel').innerHTML=(p.width?pxText:'―')+(p.width?(ok?' <span style="color:#3da876">✓CALS適合</span>':' <span style="color:#d9a93a">▲要確認</span>'):'');
   document.getElementById('dm-date').textContent=fmt(new Date(p.date));
   document.getElementById('detailModal').classList.add('open');
 }
@@ -656,12 +708,12 @@ function renderStats(){
 
 // ════════ INIT ════════
 async function init(){
-  await openDB();photos=await dbGetAll();loadMasters();populateKoujiSelect();loadShotPos();
+  await openDB();photos=await dbGetAll();loadMasters();populateKoujiSelect();
   const last=localStorage.getItem('lastKoujiId');
   if(last&&findKouji(last)){selKouji.value=last;selKouji.dispatchEvent(new Event('change'))}
   updateCount();await startCamera();
   document.getElementById('loading').style.display='none';document.getElementById('app').style.display='flex';
-  requestAnimationFrame(updateBoardDisplay);
+  requestAnimationFrame(()=>{updateBoardDisplay();updateGuide();reflowOverlays();});
 }
 init().catch(e=>{document.getElementById('loading').innerHTML='<p style="color:#d9534f">起動エラー: '+e.message+'</p>'});
 </script>
