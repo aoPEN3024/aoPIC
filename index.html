@@ -49,7 +49,9 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .bd-val{font-size:11px;color:#fff;font-weight:600;min-width:0;flex:1;white-space:nowrap;overflow:hidden;line-height:1.25}
 .bd-koujimei .bd-val{font-size:12px}
 .bd-half{border:none;border-top:1px solid #6a9a7a;margin:6px 0 6px}
-.bd-bottom{min-height:46px;display:flex;align-items:flex-start}
+.bd-bottom{min-height:40px;display:flex;align-items:flex-start}
+.bd-foot{display:flex;justify-content:flex-end;align-items:baseline;gap:4px;margin-top:4px}
+.bd-contractor{font-size:11px;color:#fff;font-weight:600;max-width:150px;white-space:nowrap;overflow:hidden;text-align:right}
 .bd-tekiyo{font-size:15px;color:#fff;font-weight:700;line-height:1.3;word-break:break-all;white-space:normal;width:100%}
 
 /* ハンバーガー(青赤青・透過) */
@@ -181,6 +183,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .add-kouji input:focus{outline:none;border-color:var(--accent2)}
 .add-kouji button{flex-shrink:0;background:var(--accent2);color:#fff;border:none;border-radius:8px;padding:10px 14px;font-size:13px;font-weight:600;cursor:pointer}
 .m-empty{text-align:center;color:var(--text2);font-size:13px;padding:30px 10px}
+.contractor-disp{display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px}
+.contractor-name{font-size:13px;color:var(--text)}
 
 /* ── SETTINGS ── */
 #settingsScreen{background:var(--bg)}
@@ -203,6 +207,13 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238b91a8' d='M2 4l4 4 4-4'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
 #closeBoardEditor{margin-top:8px;width:100%;padding:11px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}
 .bed-empty{font-size:12px;color:var(--text2);text-align:center;padding:8px;background:var(--surface2);border-radius:8px;margin-bottom:10px}
+#photoEditor{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);border-radius:16px 16px 0 0;padding:16px;padding-bottom:calc(16px + var(--safe-b));transform:translateY(110%);transition:transform .3s ease;z-index:55;max-height:88dvh;max-height:88vh;overflow-y:auto}
+#photoEditor.open{transform:translateY(0)}
+#photoEditor h3{font-size:14px;margin-bottom:8px;color:var(--accent2)}
+.pe-note{font-size:11px;color:var(--text2);background:var(--surface2);border-radius:8px;padding:8px 10px;margin-bottom:12px;line-height:1.4}
+#pe-save{flex:1;padding:11px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}
+#pe-cancel{flex:1;padding:11px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}
+.detail-edit-btn{width:100%;margin-top:10px;padding:11px;background:var(--accent2);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer}
 
 /* LOADING */
 #loading{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;z-index:100}
@@ -235,6 +246,7 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
       </div>
       <hr class="bd-half">
       <div class="bd-bottom"><span class="bd-tekiyo" id="bv-tekiyo">―</span></div>
+      <div class="bd-foot"><span class="bd-lbl">施工者</span><span class="bd-contractor" id="bv-contractor">―</span></div>
     </div>
     <div id="countBadge">0枚</div>
     <div id="flashMsg"></div>
@@ -358,11 +370,32 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
     <div class="detail-row"><span class="detail-key">画素数</span><span class="detail-val" id="dm-pixel"></span></div>
     <div class="detail-row"><span class="detail-key">撮影日時</span><span class="detail-val" id="dm-date"></span></div>
   </div>
+  <button id="detailEdit" class="detail-edit-btn">✏️ 分類を編集</button>
   <div id="detailActions">
     <button id="detailShare">⬆️ 共有</button>
     <button id="detailDl">💾 保存</button>
     <button id="detailDel">🗑 削除</button>
     <button id="detailClose">閉じる</button>
+  </div>
+</div>
+
+<!-- PHOTO EDITOR -->
+<div id="photoEditor">
+  <h3>✏️ 写真の分類を編集</h3>
+  <div class="pe-note">焼き込み済みの黒板画像は変わりません。分類情報（フォルダ分け・フィルター用）のみ更新します。</div>
+  <div class="bed-field"><div class="bed-label">工事</div><select class="bed-input" id="pe-kouji"><option value="">（工事を選択）</option></select></div>
+  <div class="bed-field"><div class="bed-label">工種</div><select class="bed-input" id="pe-koushu"><option value="">―</option></select></div>
+  <div class="bed-field" id="pe-field-shubetsu"><div class="bed-label">種別</div><select class="bed-input" id="pe-shubetsu"><option value="">―</option></select></div>
+  <div class="bed-field" id="pe-field-saibetsu"><div class="bed-label">細別</div><select class="bed-input" id="pe-saibetsu"><option value="">―</option></select></div>
+  <div class="bed-field"><div class="bed-label">測点</div>
+    <select class="bed-input" id="pe-sel-sokuten"><option value="">―</option><option value="__manual__">＋ 手入力</option></select>
+    <input class="bed-input" id="pe-in-sokuten" style="display:none;margin-top:6px" placeholder="測点を入力" type="text"></div>
+  <div class="bed-field"><div class="bed-label">摘要</div>
+    <select class="bed-input" id="pe-sel-tekiyo"><option value="">―</option><option value="__manual__">＋ 手入力</option></select>
+    <input class="bed-input" id="pe-in-tekiyo" style="display:none;margin-top:6px" placeholder="摘要を入力" type="text"></div>
+  <div style="display:flex;gap:8px;margin-top:4px">
+    <button id="pe-cancel">キャンセル</button>
+    <button id="pe-save">保存</button>
   </div>
 </div>
 
@@ -374,6 +407,7 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
 const DB_NAME='KoujiPhoto',DB_VER=1,STORE='photos';let db;
 function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open(DB_NAME,DB_VER);r.onupgradeneeded=e=>{const d=e.target.result;if(!d.objectStoreNames.contains(STORE)){d.createObjectStore(STORE,{keyPath:'id',autoIncrement:true})}};r.onsuccess=e=>{db=e.target.result;res(db)};r.onerror=()=>rej(r.error)})}
 function dbAdd(p){return new Promise((res,rej)=>{const t=db.transaction(STORE,'readwrite');const r=t.objectStore(STORE).add(p);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+function dbPut(p){return new Promise((res,rej)=>{const t=db.transaction(STORE,'readwrite');const r=t.objectStore(STORE).put(p);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)})}
 function dbGetAll(){return new Promise((res,rej)=>{const t=db.transaction(STORE,'readonly');const r=t.objectStore(STORE).getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
 function dbDelete(id){return new Promise((res,rej)=>{const t=db.transaction(STORE,'readwrite');const r=t.objectStore(STORE).delete(id);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)})}
 function dbClear(){return new Promise((res,rej)=>{const t=db.transaction(STORE,'readwrite');const r=t.objectStore(STORE).clear();r.onsuccess=()=>res();r.onerror=()=>rej(r.error)})}
@@ -383,7 +417,7 @@ const MKEY='koujiMasters';let masters=[];
 function loadMasters(){
   try{masters=JSON.parse(localStorage.getItem(MKEY))||[]}catch(e){masters=[]}
   if(!masters.length){
-    masters=[{id:'sample',name:'久喜駅補修工事',
+    masters=[{id:'sample',name:'久喜駅補修工事',contractor:'青山塗装株式会社',
       koushu:[{name:'塗替塗装工',types:[{name:'塗膜除去工',details:['掻き落とし','ブラスト']},{name:'下塗工',details:[]}]}],
       sokuten:['P1橋脚','P2橋脚','A1橋台'],tekiyo:['施工前','施工中','施工後','使用材料','出来形']}];
     saveMasters();
@@ -395,7 +429,7 @@ function findKouji(id){return masters.find(k=>k.id===id)}
 
 // ════════ STATE ════════
 let stream=null,facingMode='environment';
-let boardData={koujiId:'',koujimei:'',koushu:'',shubetsu:'',saibetsu:'',sokuten:'',tekiyo:''};
+let boardData={koujiId:'',koujimei:'',koushu:'',shubetsu:'',saibetsu:'',sokuten:'',tekiyo:'',contractor:''};
 let photos=[],filterKoushu='all',detailId=null,detailList=[];
 
 // ════════ 画面遷移 ════════
@@ -530,7 +564,7 @@ function populateKoujiSelect(){
 }
 selKouji.addEventListener('change',()=>{
   boardData.koujiId=selKouji.value;const k=findKouji(selKouji.value);
-  boardData.koujimei=k?k.name:'';boardData.koushu=boardData.shubetsu=boardData.saibetsu='';boardData.sokuten=boardData.tekiyo='';
+  boardData.koujimei=k?k.name:'';boardData.contractor=k?(k.contractor||''):'';boardData.koushu=boardData.shubetsu=boardData.saibetsu='';boardData.sokuten=boardData.tekiyo='';
   selKoushu.innerHTML='';selKoushu.appendChild(opt('','―'));
   if(k)k.koushu.forEach((ks,i)=>selKoushu.appendChild(opt(String(i),ks.name)));
   selShubetsu.innerHTML='';selShubetsu.appendChild(opt('','―'));selSaibetsu.innerHTML='';selSaibetsu.appendChild(opt('','―'));
@@ -573,6 +607,7 @@ function updateBoardDisplay(){
   fitVal('bv-shubetsu',boardData.shubetsu||'―',11,6,false);
   fitVal('bv-saibetsu',boardData.saibetsu||'―',11,6,false);
   fitTekiyo(boardData.tekiyo||'―');                                  // 摘要：大きく折り返し
+  fitVal('bv-contractor',boardData.contractor||'―',11,7,false);      // 施工者：右下
 }
 function fitVal(id,text,baseFs,minFs,allowWrap){
   const el=document.getElementById(id);el.textContent=text;
@@ -648,7 +683,7 @@ function drawBoardToCanvas(ctx,vRect,coverScale,offX,offY){
   if(hr){const r=hr.getBoundingClientRect();const hy=toImgY((r.top+r.bottom)/2);ctx.strokeStyle='#6a9a7a';ctx.lineWidth=Math.max(1,bw*0.005);ctx.beginPath();ctx.moveTo(bx+bw*0.05,hy);ctx.lineTo(bx+bw*0.95,hy);ctx.stroke()}
   // 各テキスト要素を転写
   ctx.textBaseline='top';
-  board.querySelectorAll('.bd-lbl,.bd-val,.bd-tekiyo').forEach(el=>{
+  board.querySelectorAll('.bd-lbl,.bd-val,.bd-tekiyo,.bd-contractor').forEach(el=>{
     const txt=el.textContent;if(!txt)return;
     const cs=getComputedStyle(el),r=el.getBoundingClientRect();
     if(!r.width)return;
@@ -753,6 +788,78 @@ document.getElementById('detailShare').addEventListener('click',async()=>{
 });
 document.getElementById('detailDel').addEventListener('click',async()=>{if(!confirm('この写真を削除しますか？'))return;await dbDelete(detailId);photos=await dbGetAll();updateCount();document.getElementById('detailModal').classList.remove('open');renderGallery()});
 document.getElementById('detailModal').addEventListener('click',e=>{if(e.target===e.currentTarget)document.getElementById('detailModal').classList.remove('open')});
+
+// ════════ 写真の分類編集 ════════
+let editPhotoData={koujiId:'',koushu:'',shubetsu:'',saibetsu:'',sokuten:'',tekiyo:''},editingId=null;
+const peKouji=document.getElementById('pe-kouji'),peKoushu=document.getElementById('pe-koushu'),
+      peShubetsu=document.getElementById('pe-shubetsu'),peSaibetsu=document.getElementById('pe-saibetsu'),
+      peSelSokuten=document.getElementById('pe-sel-sokuten'),peSelTekiyo=document.getElementById('pe-sel-tekiyo'),
+      peInSokuten=document.getElementById('pe-in-sokuten'),peInTekiyo=document.getElementById('pe-in-tekiyo');
+const peEditor=document.getElementById('photoEditor');
+
+document.getElementById('detailEdit').addEventListener('click',()=>{
+  const p=photos.find(x=>x.id===detailId);if(!p)return;
+  editingId=p.id;
+  editPhotoData={koujiId:'',koushu:p.koushu||'',shubetsu:p.shubetsu||'',saibetsu:p.saibetsu||'',sokuten:p.sokuten||'',tekiyo:p.tekiyo||''};
+  // 工事名から該当工事を特定
+  const k=masters.find(m=>m.name===p.koujimei);
+  peKouji.innerHTML='';peKouji.appendChild(opt('','（工事を選択）'));
+  masters.forEach(m=>peKouji.appendChild(opt(m.id,m.name)));
+  peKouji.value=k?k.id:'';editPhotoData.koujiId=k?k.id:'';
+  peBuildKoushu(k);
+  // 既存値を選択状態に
+  if(k){
+    const ki=k.koushu.findIndex(x=>x.name===p.koushu);
+    if(ki>=0){peKoushu.value=String(ki);peBuildShubetsu(k.koushu[ki]);
+      const ti=k.koushu[ki].types.findIndex(x=>x.name===p.shubetsu);
+      if(ti>=0){peShubetsu.value=String(ti);peBuildSaibetsu(k.koushu[ki].types[ti]);
+        if(k.koushu[ki].types[ti].details.includes(p.saibetsu))peSaibetsu.value=p.saibetsu;}
+    }
+  }
+  peBuildSokutenTekiyo(k,p);
+  peEditor.classList.add('open');
+});
+function peBuildKoushu(k){peKoushu.innerHTML='';peKoushu.appendChild(opt('','―'));if(k)k.koushu.forEach((ks,i)=>peKoushu.appendChild(opt(String(i),ks.name)));document.getElementById('pe-field-shubetsu').style.display='none';document.getElementById('pe-field-saibetsu').style.display='none'}
+function peBuildShubetsu(ks){peShubetsu.innerHTML='';peShubetsu.appendChild(opt('','―'));document.getElementById('pe-field-saibetsu').style.display='none';if(ks&&ks.types.length){ks.types.forEach((tp,i)=>peShubetsu.appendChild(opt(String(i),tp.name)));document.getElementById('pe-field-shubetsu').style.display='block'}else{document.getElementById('pe-field-shubetsu').style.display='none'}}
+function peBuildSaibetsu(tp){peSaibetsu.innerHTML='';peSaibetsu.appendChild(opt('','―'));if(tp&&tp.details.length){tp.details.forEach(d=>peSaibetsu.appendChild(opt(d,d)));document.getElementById('pe-field-saibetsu').style.display='block'}else{document.getElementById('pe-field-saibetsu').style.display='none'}}
+function peBuildSokutenTekiyo(k,p){
+  peSelSokuten.innerHTML='';peSelSokuten.appendChild(opt('','―'));(k?k.sokuten:[]).forEach(s=>peSelSokuten.appendChild(opt(s,s)));peSelSokuten.appendChild(opt('__manual__','＋ 手入力'));
+  peInSokuten.style.display='none';peInSokuten.value='';
+  if(p&&p.sokuten){if(k&&k.sokuten.includes(p.sokuten))peSelSokuten.value=p.sokuten;else{peSelSokuten.value='__manual__';peInSokuten.style.display='block';peInSokuten.value=p.sokuten}}
+  peSelTekiyo.innerHTML='';peSelTekiyo.appendChild(opt('','―'));(k?k.tekiyo:[]).forEach(s=>peSelTekiyo.appendChild(opt(s,s)));peSelTekiyo.appendChild(opt('__manual__','＋ 手入力'));
+  peInTekiyo.style.display='none';peInTekiyo.value='';
+  if(p&&p.tekiyo){if(k&&k.tekiyo.includes(p.tekiyo))peSelTekiyo.value=p.tekiyo;else{peSelTekiyo.value='__manual__';peInTekiyo.style.display='block';peInTekiyo.value=p.tekiyo}}
+}
+peKouji.addEventListener('change',()=>{
+  const k=findKouji(peKouji.value);editPhotoData.koujiId=peKouji.value;
+  editPhotoData.koushu=editPhotoData.shubetsu=editPhotoData.saibetsu=editPhotoData.sokuten=editPhotoData.tekiyo='';
+  peBuildKoushu(k);peBuildSokutenTekiyo(k,null);
+});
+peKoushu.addEventListener('change',()=>{
+  const k=findKouji(peKouji.value),ks=k&&peKoushu.value!==''?k.koushu[+peKoushu.value]:null;
+  editPhotoData.koushu=ks?ks.name:'';editPhotoData.shubetsu=editPhotoData.saibetsu='';peBuildShubetsu(ks);
+});
+peShubetsu.addEventListener('change',()=>{
+  const k=findKouji(peKouji.value),ks=k&&peKoushu.value!==''?k.koushu[+peKoushu.value]:null,tp=ks&&peShubetsu.value!==''?ks.types[+peShubetsu.value]:null;
+  editPhotoData.shubetsu=tp?tp.name:'';editPhotoData.saibetsu='';peBuildSaibetsu(tp);
+});
+peSaibetsu.addEventListener('change',()=>{editPhotoData.saibetsu=peSaibetsu.value});
+peSelSokuten.addEventListener('change',()=>{if(peSelSokuten.value==='__manual__'){peInSokuten.style.display='block';editPhotoData.sokuten=peInSokuten.value;peInSokuten.focus()}else{peInSokuten.style.display='none';editPhotoData.sokuten=peSelSokuten.value}});
+peInSokuten.addEventListener('input',()=>{editPhotoData.sokuten=peInSokuten.value});
+peSelTekiyo.addEventListener('change',()=>{if(peSelTekiyo.value==='__manual__'){peInTekiyo.style.display='block';editPhotoData.tekiyo=peInTekiyo.value;peInTekiyo.focus()}else{peInTekiyo.style.display='none';editPhotoData.tekiyo=peSelTekiyo.value}});
+peInTekiyo.addEventListener('input',()=>{editPhotoData.tekiyo=peInTekiyo.value});
+document.getElementById('pe-cancel').addEventListener('click',()=>peEditor.classList.remove('open'));
+document.getElementById('pe-save').addEventListener('click',async()=>{
+  const p=photos.find(x=>x.id===editingId);if(!p)return;
+  const k=findKouji(editPhotoData.koujiId);
+  p.koujimei=k?k.name:p.koujimei;
+  p.koushu=editPhotoData.koushu;p.shubetsu=editPhotoData.shubetsu;p.saibetsu=editPhotoData.saibetsu;
+  p.sokuten=editPhotoData.sokuten;p.tekiyo=editPhotoData.tekiyo;
+  await dbPut(p);photos=await dbGetAll();
+  peEditor.classList.remove('open');
+  renderGallery();openDetail(editingId);
+});
+
 function buildFilename(p){const dt=new Date(p.date);const base=`${yyyymmdd(dt)}_${p.koushu||'未分類'}_${p.sokuten||''}`.replace(/[\/\\:*?"<>|]/g,'_');return base+'.jpg'}
 function yyyymmdd(d){return`${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}`}
 
@@ -820,6 +927,8 @@ function koujiCardHTML(k){
   return `<div class="kouji-card${open}" data-kid="${k.id}">
     <div class="kouji-head" data-act="toggle"><span class="kouji-name">${esc(k.name)}</span><span class="kouji-head-right"><button class="icon-btn" data-act="renameKouji">✎</button><span class="kouji-toggle">▸</span><button class="icon-btn" data-act="delKouji">🗑</button></span></div>
     <div class="kouji-body">
+      <div class="m-section-title">施工者</div>
+      <div class="contractor-disp"><span class="contractor-name">${esc(k.contractor||'（未設定）')}</span><button class="icon-btn" data-act="renameContractor">✎</button></div>
       <div class="m-section-title">工種 → 種別 → 細別</div>${koushuHTML}
       <div class="add-inline"><input placeholder="工種を追加"><button data-act="addKoushu">＋工種</button></div>
       <div class="m-section-title">測点</div>
@@ -839,6 +948,7 @@ masterList.addEventListener('click',e=>{
   else if(act==='renameKoushu'){const cur=k.koushu[+ki].name;const v=prompt('工種名を編集',cur);if(v===null||!v.trim())return;k.koushu[+ki].name=v.trim()}
   else if(act==='renameType'){const cur=k.koushu[+ki].types[+ti].name;const v=prompt('種別名を編集',cur);if(v===null||!v.trim())return;k.koushu[+ki].types[+ti].name=v.trim()}
   else if(act==='renameDetail'){const cur=k.koushu[+ki].types[+ti].details[+di];const v=prompt('細別名を編集',cur);if(v===null||!v.trim())return;k.koushu[+ki].types[+ti].details[+di]=v.trim()}
+  else if(act==='renameContractor'){const v=prompt('施工者名',k.contractor||'');if(v===null)return;k.contractor=v.trim()}
   else if(act==='delKouji'){if(!confirm(`「${k.name}」を削除しますか？`))return;masters=masters.filter(x=>x.id!==k.id);openKoujiIds.delete(k.id)}
   else if(act==='addKoushu'){const v=inputVal();if(!v)return;k.koushu.push({name:v,types:[]})}
   else if(act==='delKoushu'){k.koushu.splice(+ki,1)}
@@ -854,7 +964,7 @@ masterList.addEventListener('click',e=>{
   saveMasters();renderMasters();
 });
 masterList.addEventListener('keydown',e=>{if(e.key!=='Enter')return;const inp=e.target;if(inp.tagName!=='INPUT')return;const btn=inp.nextElementSibling;if(btn&&btn.dataset.act){e.preventDefault();btn.click()}});
-document.getElementById('addKoujiBtn').addEventListener('click',()=>{const inp=document.getElementById('newKoujiName'),v=inp.value.trim();if(!v)return;const k={id:uid(),name:v,koushu:[],sokuten:[],tekiyo:[]};masters.push(k);openKoujiIds.add(k.id);saveMasters();inp.value='';renderMasters()});
+document.getElementById('addKoujiBtn').addEventListener('click',()=>{const inp=document.getElementById('newKoujiName'),v=inp.value.trim();if(!v)return;const k={id:uid(),name:v,contractor:'',koushu:[],sokuten:[],tekiyo:[]};masters.push(k);openKoujiIds.add(k.id);saveMasters();inp.value='';renderMasters()});
 document.getElementById('newKoujiName').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();document.getElementById('addKoujiBtn').click()}});
 
 // ════════ SETTINGS ════════
