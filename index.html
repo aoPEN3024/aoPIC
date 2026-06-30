@@ -205,14 +205,15 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
 .bed-empty{font-size:12px;color:var(--text2);text-align:center;padding:8px;background:var(--surface2);border-radius:8px;margin-bottom:10px}
 
 /* LOADING */
-#loading{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;z-index:100}
+#loading{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;z-index:100}
+#loadingLogo{width:104px;height:104px;border-radius:22px;box-shadow:0 6px 20px rgba(0,0,0,.45);margin-bottom:4px}
 #loading p{color:var(--text2);font-size:13px}
 .spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent2);border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
-<div id="loading"><div class="spinner"></div><p>起動中...</p></div>
+<div id="loading"><img id="loadingLogo" alt="aoPIC"><div class="spinner"></div><p>起動中...</p></div>
 <div id="app" style="display:none">
 
   <!-- CAMERA (全画面) -->
@@ -367,6 +368,8 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
+// 起動画面のロゴ（埋め込み済みアイコンを流用）
+(function(){const l=document.getElementById('loadingLogo'),ic=document.querySelector('link[rel="apple-touch-icon"]');if(l&&ic)l.src=ic.href})();
 // ════════ DB ════════
 const DB_NAME='KoujiPhoto',DB_VER=1,STORE='photos';let db;
 function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open(DB_NAME,DB_VER);r.onupgradeneeded=e=>{const d=e.target.result;if(!d.objectStoreNames.contains(STORE)){d.createObjectStore(STORE,{keyPath:'id',autoIncrement:true})}};r.onsuccess=e=>{db=e.target.result;res(db)};r.onerror=()=>rej(r.error)})}
