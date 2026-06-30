@@ -57,6 +57,13 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
   background:transparent;border:none;padding:9px;cursor:pointer;
   filter:drop-shadow(0 1px 3px rgba(0,0,0,.6))}
 #menuBtn svg{display:block}
+#boardToggleBtn{position:absolute;top:calc(13px + var(--safe-t));right:calc(58px + var(--safe-r));z-index:12;
+  background:transparent;border:none;padding:9px;cursor:pointer;
+  filter:drop-shadow(0 1px 3px rgba(0,0,0,.6))}
+#boardToggleBtn svg{display:block}
+#boardToggleBtn .bt-slash{display:none}
+#boardToggleBtn.off .bt-slash{display:block}
+#boardToggleBtn.off rect,#boardToggleBtn.off line:not(.bt-slash){opacity:.4}
 
 /* シャッター(フローティング・ドラッグ可) */
 #shotBtn{position:absolute;z-index:11;width:72px;height:72px;border-radius:50%;
@@ -230,6 +237,14 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
     </div>
     <div id="countBadge">0枚</div>
     <div id="flashMsg"></div>
+    <button id="boardToggleBtn" aria-label="黒板表示切替">
+      <svg width="22" height="20" viewBox="0 0 22 20" xmlns="http://www.w3.org/2000/svg">
+        <rect x="1" y="2" width="20" height="14" rx="2" fill="none" stroke="#fff" stroke-width="2"/>
+        <line x1="4" y1="7" x2="14" y2="7" stroke="#fff" stroke-width="1.6"/>
+        <line x1="4" y1="11" x2="12" y2="11" stroke="#fff" stroke-width="1.6"/>
+        <line class="bt-slash" x1="2" y1="18" x2="20" y2="2" stroke="#d8281f" stroke-width="2.2" stroke-linecap="round"/>
+      </svg>
+    </button>
     <button id="menuBtn" aria-label="メニュー">
       <svg width="27" height="20" viewBox="0 0 27 20" xmlns="http://www.w3.org/2000/svg">
         <rect y="0" width="27" height="3.2" rx="1.6" fill="#1b50a0"/>
@@ -394,6 +409,7 @@ const menuBtn=document.getElementById('menuBtn'),sideMenu=document.getElementByI
 function openMenu(){sideMenu.classList.add('open');menuOverlay.classList.add('open')}
 function closeMenu(){sideMenu.classList.remove('open');menuOverlay.classList.remove('open')}
 menuBtn.addEventListener('click',openMenu);
+document.getElementById('boardToggleBtn').addEventListener('click',()=>setBoardVisible(!boardVisible));
 menuOverlay.addEventListener('click',closeMenu);
 document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>showScreen(b.dataset.go)));
 document.getElementById('mi-board').addEventListener('click',()=>{closeMenu();setBoardVisible(true);document.getElementById('boardEditor').classList.add('open')});
@@ -420,25 +436,19 @@ function updateGuide(){const g=computeGuideRect();const f=document.getElementByI
 // ════════ 黒板ドラッグ（枠内に制限）════════
 const board=document.getElementById('boardOverlay'),videoWrap=document.getElementById('videoWrap');
 let bDrag=false,bOffX=0,bOffY=0,bMoved=false,bStartX=0,bStartY=0;
-let boardVisible=true,lastBoardTap=0,boardTapTimer=null,lastTapHandled=0;
+let boardVisible=true,lastTapHandled=0;
 function bDown(cx,cy){bDrag=true;bMoved=false;bStartX=cx;bStartY=cy;board.classList.add('dragging');const r=board.getBoundingClientRect();bOffX=cx-r.left;bOffY=cy-r.top}
 function bMove(cx,cy){if(!bDrag)return;if(!bMoved&&(Math.abs(cx-bStartX)>6||Math.abs(cy-bStartY)>6))bMoved=true;if(bMoved){const w=videoWrap.getBoundingClientRect();const g=computeGuideRect();let x=cx-w.left-bOffX,y=cy-w.top-bOffY;x=Math.max(g.x,Math.min(x,g.x+g.w-board.offsetWidth));y=Math.max(g.y,Math.min(y,g.y+g.h-board.offsetHeight));board.style.left=x+'px';board.style.top=y+'px'}}
 function bUp(){if(!bDrag)return;bDrag=false;board.classList.remove('dragging');if(!bMoved)handleBoardTap()}
 function handleBoardTap(){
   const t=Date.now();
-  if(t-lastTapHandled<60)return;          // mouseエミュレート重複防止
+  if(t-lastTapHandled<60)return;   // mouseエミュレート重複防止
   lastTapHandled=t;
-  if(t-lastBoardTap<300){                   // ダブルタップ → 表示/非表示
-    clearTimeout(boardTapTimer);lastBoardTap=0;
-    setBoardVisible(!boardVisible);
-  }else{                                     // シングルタップ → 編集（300ms待ってダブルでなければ）
-    lastBoardTap=t;
-    boardTapTimer=setTimeout(()=>{boardEditor.classList.add('open')},300);
-  }
+  boardEditor.classList.add('open'); // タップ＝編集パネルを開く
 }
 function setBoardVisible(v){
   boardVisible=v;board.style.display=v?'':'none';
-  showFlash(v?'黒板を表示':'黒板を非表示（メニューから再表示）');
+  const tb=document.getElementById('boardToggleBtn');if(tb)tb.classList.toggle('off',!v);
 }
 board.addEventListener('mousedown',e=>{if(e.target.tagName!=='INPUT'){e.preventDefault();bDown(e.clientX,e.clientY)}});
 board.addEventListener('touchstart',e=>{const t=e.touches[0];bDown(t.clientX,t.clientY)},{passive:true});
@@ -553,7 +563,6 @@ selTekiyo.addEventListener('change',()=>{if(selTekiyo.value==='__manual__'){inTe
 inTekiyo.addEventListener('input',()=>{boardData.tekiyo=inTekiyo.value;updateBoardDisplay()});
 
 // ════════ 黒板表示 ════════
-function shubetsuLine(){if(!boardData.shubetsu)return '―';return boardData.saibetsu?boardData.shubetsu+' ＞ '+boardData.saibetsu:boardData.shubetsu}
 function updateBoardDisplay(){
   fitVal('bv-koujimei',boardData.koujimei||'（未選択）',12,8,true);  // 工事名：縮小→限界で折り返し
   fitVal('bv-koushu',boardData.koushu||'―',11,6,false);
