@@ -218,6 +218,22 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
 #pe-save{flex:1;padding:11px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}
 #pe-cancel{flex:1;padding:11px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}
 .detail-edit-btn{width:100%;margin-top:10px;padding:11px;background:var(--accent2);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer}
+.mb-btns{display:flex;gap:8px}
+.mb-btns button{flex:1;padding:11px 4px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font)}
+#mbExport{background:var(--accent);border-color:var(--accent);color:#fff}
+#importPanel{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);border-radius:16px 16px 0 0;padding:16px;padding-bottom:calc(16px + var(--safe-b));transform:translateY(110%);transition:transform .3s ease;z-index:60;max-height:88dvh;max-height:88vh;overflow-y:auto}
+#importPanel.open{transform:translateY(0)}
+#importPanel h3{font-size:14px;margin-bottom:8px;color:var(--accent2)}
+.ip-file{width:100%;padding:12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font)}
+.ip-or{text-align:center;color:var(--text2);font-size:11px;margin:10px 0}
+#ipText{resize:vertical;font-size:12px;line-height:1.4}
+.ip-info{margin-top:10px;padding:9px 12px;border-radius:8px;font-size:12px;background:rgba(61,168,118,.12);border:1px solid rgba(61,168,118,.35);color:var(--accent2)}
+.ip-info.err{background:rgba(217,83,79,.12);border-color:rgba(217,83,79,.35);color:var(--danger)}
+.ip-actions{display:flex;gap:8px;margin-top:12px}
+.ip-actions button{flex:1;padding:11px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font)}
+#ipMerge{background:var(--accent);color:#fff}
+#ipReplace{background:rgba(217,83,79,.15);color:var(--danger);border:1px solid rgba(217,83,79,.3)}
+#ipCancel{width:100%;margin-top:8px;padding:10px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:8px;font-size:13px;cursor:pointer;font-family:var(--font)}
 
 /* LOADING */
 #loading{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;z-index:100}
@@ -325,6 +341,17 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
         <div class="setting-row"><div><div class="setting-label">保存写真数</div></div><div class="stat-val" id="statCount">0</div></div>
         <div class="setting-row"><div><div class="setting-label">使用容量（目安）</div></div><div class="stat-val" id="statSize">0 MB</div></div>
       </div>
+      <div class="m-section-title">工事設定のバックアップ・共有</div>
+      <div class="setting-group">
+        <div class="setting-row" style="display:block">
+          <div class="setting-sub" style="margin:0 0 10px">工事・工種・施工者などの設定を書き出して保存したり、他の端末へ渡せます。写真は含まれません。</div>
+          <div class="mb-btns">
+            <button id="mbExport">📤 書き出し（共有）</button>
+            <button id="mbCopy">📋 コピー</button>
+            <button id="mbImport">📥 読み込み</button>
+          </div>
+        </div>
+      </div>
       <button id="clearAllBtn">⚠️ 全写真を削除</button>
       <div style="text-align:center;margin-top:14px"><button class="back-btn" id="resetShotPos">シャッター位置をリセット</button></div>
     </div>
@@ -401,6 +428,22 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
     <button id="pe-cancel">キャンセル</button>
     <button id="pe-save">保存</button>
   </div>
+</div>
+
+<!-- MASTER IMPORT -->
+<div id="importPanel">
+  <h3>📥 工事設定を読み込み</h3>
+  <div class="pe-note">受け取ったファイルを選ぶか、コピーしたテキストを貼り付けてください。</div>
+  <button id="ipFileBtn" class="ip-file">📁 ファイルを選ぶ</button>
+  <input type="file" id="ipFile" accept=".json,application/json" style="display:none">
+  <div class="ip-or">または</div>
+  <textarea id="ipText" class="bed-input" rows="4" placeholder="ここにテキストを貼り付け"></textarea>
+  <div id="ipInfo" class="ip-info" style="display:none"></div>
+  <div class="ip-actions">
+    <button id="ipMerge">追加する</button>
+    <button id="ipReplace">置き換える</button>
+  </div>
+  <button id="ipCancel" class="ip-cancel">キャンセル</button>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -986,6 +1029,82 @@ masterList.addEventListener('click',e=>{
 masterList.addEventListener('keydown',e=>{if(e.key!=='Enter')return;const inp=e.target;if(inp.tagName!=='INPUT')return;const btn=inp.nextElementSibling;if(btn&&btn.dataset.act){e.preventDefault();btn.click()}});
 document.getElementById('addKoujiBtn').addEventListener('click',()=>{const inp=document.getElementById('newKoujiName'),v=inp.value.trim();if(!v)return;const k={id:uid(),name:v,contractor:'',koushu:[],sokuten:[],tekiyo:[]};masters.push(k);openKoujiIds.add(k.id);saveMasters();inp.value='';renderMasters()});
 document.getElementById('newKoujiName').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();document.getElementById('addKoujiBtn').click()}});
+
+// ════════ 工事設定のバックアップ・共有 ════════
+function mastersToJSON(){return JSON.stringify({app:'aoPIC',type:'masters',version:1,exportedAt:new Date().toISOString(),masters},null,1)}
+function normalizeKouji(x){
+  return {
+    id:uid(),
+    name:String(x.name||'名称未設定'),
+    contractor:typeof x.contractor==='string'?x.contractor:'',
+    koushu:Array.isArray(x.koushu)?x.koushu.map(ks=>({
+      name:String(ks&&ks.name||''),
+      types:Array.isArray(ks&&ks.types)?ks.types.map(tp=>({
+        name:String(tp&&tp.name||''),
+        details:Array.isArray(tp&&tp.details)?tp.details.map(String):[]
+      })):[]
+    })).filter(ks=>ks.name):[],
+    sokuten:Array.isArray(x.sokuten)?x.sokuten.map(String):[],
+    tekiyo:Array.isArray(x.tekiyo)?x.tekiyo.map(String):[]
+  };
+}
+// 読み込みテキストを検証して工事配列を返す（不正ならエラー）
+function parseMastersText(text){
+  let data;
+  try{data=JSON.parse(text)}catch(e){throw new Error('形式が正しくありません（JSONではありません）')}
+  const arr=Array.isArray(data)?data:(data&&Array.isArray(data.masters)?data.masters:null);
+  if(!arr)throw new Error('工事データが見つかりません');
+  const list=arr.filter(x=>x&&typeof x==='object'&&x.name).map(normalizeKouji);
+  if(!list.length)throw new Error('有効な工事が0件です');
+  return list;
+}
+document.getElementById('mbExport').addEventListener('click',async()=>{
+  if(!masters.length){alert('書き出す工事がありません');return}
+  const name=`aoPIC設定_${yyyymmdd(new Date())}.json`;
+  const file=new File([mastersToJSON()],name,{type:'application/json'});
+  await shareFiles([file],null,name);
+});
+document.getElementById('mbCopy').addEventListener('click',async()=>{
+  if(!masters.length){alert('コピーする工事がありません');return}
+  const txt=mastersToJSON();
+  try{
+    await navigator.clipboard.writeText(txt);
+    alert('コピーしました。LINEやメモに貼り付けて渡せます。');
+  }catch(e){
+    // クリップボード非対応時：共有シートでテキストを渡す
+    try{await navigator.share({text:txt})}catch(e2){if(e2&&e2.name!=='AbortError')alert('コピーできませんでした')}
+  }
+});
+const importPanel=document.getElementById('importPanel'),ipText=document.getElementById('ipText'),ipInfo=document.getElementById('ipInfo');
+function ipShow(msg,isErr){ipInfo.textContent=msg;ipInfo.className='ip-info'+(isErr?' err':'');ipInfo.style.display='block'}
+function ipPreview(){
+  const t=ipText.value.trim();
+  if(!t){ipInfo.style.display='none';return}
+  try{const list=parseMastersText(t);ipShow(`工事 ${list.length}件を読み込めます：${list.map(k=>k.name).join('、')}`,false)}
+  catch(e){ipShow(e.message,true)}
+}
+document.getElementById('mbImport').addEventListener('click',()=>{ipText.value='';ipInfo.style.display='none';importPanel.classList.add('open')});
+document.getElementById('ipCancel').addEventListener('click',()=>importPanel.classList.remove('open'));
+document.getElementById('ipFileBtn').addEventListener('click',()=>document.getElementById('ipFile').click());
+document.getElementById('ipFile').addEventListener('change',e=>{
+  const f=e.target.files&&e.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{ipText.value=String(r.result||'');ipPreview()};
+  r.onerror=()=>ipShow('ファイルを読めませんでした',true);
+  r.readAsText(f);e.target.value='';
+});
+ipText.addEventListener('input',ipPreview);
+function doImport(replace){
+  let list;
+  try{list=parseMastersText(ipText.value.trim())}catch(e){ipShow(e.message,true);return}
+  if(replace&&!confirm(`現在の工事${masters.length}件をすべて消して、${list.length}件に置き換えます。よろしいですか？`))return;
+  masters=replace?list:masters.concat(list);
+  saveMasters();importPanel.classList.remove('open');
+  renderMasters();populateKoujiSelect();renderStats();
+  alert(`工事${list.length}件を${replace?'置き換え':'追加'}ました`);
+}
+document.getElementById('ipMerge').addEventListener('click',()=>doImport(false));
+document.getElementById('ipReplace').addEventListener('click',()=>doImport(true));
 
 // ════════ SETTINGS ════════
 document.getElementById('clearAllBtn').addEventListener('click',async()=>{if(!confirm('全写真を削除します。元に戻せません。'))return;await dbClear();photos=[];updateCount();renderStats();alert('削除しました')});
