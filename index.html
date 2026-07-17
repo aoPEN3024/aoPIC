@@ -120,6 +120,9 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .gal-head-actions{display:flex;align-items:center;gap:10px;flex:1}
 #dlAllBtn{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer}
 #filterBar{flex-shrink:0;border-bottom:1px solid var(--border);background:var(--surface)}
+#zipOptions{display:flex;gap:14px;align-items:center;padding:7px 16px 10px;color:var(--text2);font-size:11px}
+#zipOptions label{display:flex;align-items:center;gap:5px;cursor:pointer}
+#zipOptions input{accent-color:var(--accent)}
 #filterModeTabs{display:flex;gap:8px;padding:10px 16px 4px}
 .fmode{flex:1;padding:7px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font)}
 .fmode.active{background:var(--accent);border-color:var(--accent);color:#fff}
@@ -147,8 +150,9 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 #detailImg{max-width:100%;max-height:55dvh;max-height:55vh;object-fit:contain;border-radius:8px}
 #detailMeta{margin-top:12px;padding:12px 16px;background:var(--surface);border-radius:var(--radius);width:100%;font-size:13px;max-height:25dvh;max-height:25vh;overflow-y:auto}
 .detail-row{display:flex;gap:8px;margin-bottom:4px}
-.detail-key{color:var(--text2);min-width:56px;font-size:12px;flex-shrink:0}
+.detail-key{color:var(--text2);min-width:72px;font-size:12px;flex-shrink:0}
 .detail-val{color:var(--text);white-space:pre-wrap}
+#detailWarning{display:none;margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(217,169,58,.13);border:1px solid rgba(217,169,58,.35);color:#d9a93a;font-size:11px;font-weight:600}
 #detailActions{display:flex;gap:8px;margin-top:12px;width:100%}
 #detailShare,#detailDl,#detailDel,#detailClose{flex:1;padding:12px 6px;border:none;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer}
 #detailShare{background:var(--accent2);color:#fff}
@@ -212,6 +216,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .setting-label{font-size:14px}
 .setting-sub{font-size:11px;color:var(--text2);margin-top:2px}
 .stat-val{font-size:18px;font-weight:700;color:var(--accent2)}
+#csvKouji{width:100%;margin-bottom:8px}
+#csvExport{width:100%;padding:11px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font)}
 #clearAllBtn{width:100%;padding:14px;background:rgba(217,83,79,.1);color:var(--danger);border:1px solid rgba(217,83,79,.3);border-radius:var(--radius);font-size:14px;font-weight:600;cursor:pointer;margin-top:8px}
 
 /* ── BOARD EDITOR (ボトムシート) ── */
@@ -351,6 +357,10 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
         <div class="date-range"><input type="date" id="dateFrom"><span>〜</span><input type="date" id="dateTo"><button id="dateClear" class="dchip-clear">クリア</button></div>
         <div id="dateChips" class="filter-chips"></div>
       </div>
+      <div id="zipOptions">
+        <label><input type="checkbox" id="zipIncludeCsv">photos.csvを同梱</label>
+        <label><input type="checkbox" id="zipIncludeJson">photos.jsonを同梱</label>
+      </div>
     </div>
     <div id="photoGrid"></div>
   </div>
@@ -396,6 +406,14 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
             <button id="mbCopy">📋 コピー</button>
             <button id="mbImport">📥 読み込み</button>
           </div>
+        </div>
+      </div>
+      <div class="m-section-title">工事単位の写真情報CSV</div>
+      <div class="setting-group">
+        <div class="setting-row" style="display:block">
+          <div class="setting-sub" style="margin:0 0 10px">工事を選択して、写真情報をExcel対応のCSVで書き出します。</div>
+          <select class="bed-input" id="csvKouji"><option value="">（工事を選択）</option></select>
+          <button id="csvExport">📄 写真情報CSVを書き出す</button>
         </div>
       </div>
       <button id="clearAllBtn">⚠️ 全写真を削除</button>
@@ -450,8 +468,11 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
     <div class="detail-row"><span class="detail-key">細別</span><span class="detail-val" id="dm-saibetsu"></span></div>
     <div class="detail-row"><span class="detail-key">測点</span><span class="detail-val" id="dm-sokuten"></span></div>
     <div class="detail-row"><span class="detail-key">摘要</span><span class="detail-val" id="dm-tekiyo"></span></div>
+    <div class="detail-row"><span class="detail-key">台帳タイトル</span><span class="detail-val" id="dm-ledger-title"></span></div>
+    <div class="detail-row"><span class="detail-key">台帳説明</span><span class="detail-val" id="dm-ledger-description"></span></div>
     <div class="detail-row"><span class="detail-key">画素数</span><span class="detail-val" id="dm-pixel"></span></div>
     <div class="detail-row"><span class="detail-key">撮影日時</span><span class="detail-val" id="dm-date"></span></div>
+    <div id="detailWarning">⚠️ 画像内の黒板は変更されません</div>
   </div>
   <button id="detailEdit" class="detail-edit-btn">✏️ 分類を編集</button>
   <div id="detailActions">
@@ -465,7 +486,7 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
 <!-- PHOTO EDITOR -->
 <div id="photoEditor">
   <h3>✏️ 写真の分類を編集</h3>
-  <div class="pe-note">焼き込み済みの黒板画像は変わりません。分類情報（フォルダ分け・フィルター用）のみ更新します。</div>
+  <div class="pe-note">⚠️ 画像内の黒板は変更されません。分類情報（フォルダ分け・フィルター用）と台帳情報のみ更新します。</div>
   <div class="bed-field"><div class="bed-label">工事</div><select class="bed-input" id="pe-kouji"><option value="">（工事を選択）</option></select></div>
   <div class="bed-field"><div class="bed-label">工種</div><select class="bed-input" id="pe-koushu"><option value="">―</option></select></div>
   <div class="bed-field" id="pe-field-shubetsu"><div class="bed-label">種別</div><select class="bed-input" id="pe-shubetsu"><option value="">―</option></select></div>
@@ -476,6 +497,9 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
   <div class="bed-field"><div class="bed-label">摘要</div>
     <select class="bed-input" id="pe-sel-tekiyo"><option value="">―</option><option value="__manual__">＋ 手入力</option></select>
     <textarea class="bed-input tekiyo-area" id="pe-in-tekiyo" style="display:none;margin-top:6px" rows="3" placeholder="摘要を入力（改行できます）"></textarea></div>
+  <div class="m-section-title">台帳情報</div>
+  <div class="bed-field"><div class="bed-label">台帳タイトル</div><input class="bed-input" id="pe-ledger-title" type="text" placeholder="例：掘削"></div>
+  <div class="bed-field"><div class="bed-label">台帳説明文</div><textarea class="bed-input tekiyo-area" id="pe-ledger-description" rows="3" placeholder="例：P1橋脚における掘削の施工状況"></textarea></div>
   <div style="display:flex;gap:8px;margin-top:4px">
     <button id="pe-cancel">キャンセル</button>
     <button id="pe-save">保存</button>
@@ -586,6 +610,61 @@ function findKouji(id){return masters.find(k=>k.id===id)}
 let stream=null,facingMode='environment';
 let boardData={koujiId:'',koujimei:'',koushu:'',shubetsu:'',saibetsu:'',sokuten:'',tekiyo:'',contractor:''};
 let photos=[],filterKoushu='all',detailId=null,detailList=[];
+const PHOTO_SCHEMA_VERSION=2;
+const BOARD_SNAPSHOT_FIELDS=['koujimei','contractor','koushu','shubetsu','saibetsu','sokuten','tekiyo'];
+
+function str(v){return v==null?'':String(v)}
+function findUniqueKoujiIdByName(name){
+  if(!name)return '';
+  const hits=masters.filter(k=>k.name===name);
+  return hits.length===1?hits[0].id:'';
+}
+function makeBoardSnapshot(src){
+  const out={};BOARD_SNAPSHOT_FIELDS.forEach(k=>out[k]=str(src&&src[k]));return out;
+}
+function generateLedger(src){
+  const subject=str(src&&src.saibetsu).trim()||str(src&&src.shubetsu).trim()||str(src&&src.koushu).trim();
+  const point=str(src&&src.sokuten).trim(),note=str(src&&src.tekiyo).trim();
+  let description='';
+  if(point&&subject&&note)description=`${point}における${subject}の${note}`;
+  else if(point&&subject)description=`${point}における${subject}`;
+  else if(subject&&note)description=`${subject}の${note}`;
+  else if(point&&note)description=`${point}における${note}`;
+  else description=point||subject||note;
+  return{title:subject||note||'工事写真',description,manual:false};
+}
+function normalizeLedger(ledger,src){
+  if(!ledger||typeof ledger!=='object')return generateLedger(src);
+  return{title:str(ledger.title),description:str(ledger.description),manual:ledger.manual===true};
+}
+function hasBoardMismatch(p){
+  if(!p||!p.boardSnapshot)return false;
+  return ['koujimei','koushu','shubetsu','saibetsu','sokuten','tekiyo'].some(k=>str(p[k])!==str(p.boardSnapshot[k]));
+}
+async function migratePhotoRecords(){
+  for(const p of photos){
+    let changed=false;
+    if(!Number.isInteger(p.schemaVersion)||p.schemaVersion<PHOTO_SCHEMA_VERSION){p.schemaVersion=PHOTO_SCHEMA_VERSION;changed=true}
+    if(typeof p.koujiId!=='string'){
+      p.koujiId=findUniqueKoujiIdByName(p.koujimei);changed=true;
+    }else if(!p.koujiId){
+      const safeId=findUniqueKoujiIdByName(p.koujimei);if(safeId){p.koujiId=safeId;changed=true}
+    }
+    if(!p.boardSnapshot||typeof p.boardSnapshot!=='object'){
+      p.boardSnapshot=makeBoardSnapshot(p);changed=true;
+    }else{
+      const normalized=makeBoardSnapshot(p.boardSnapshot);
+      if(BOARD_SNAPSHOT_FIELDS.some(k=>p.boardSnapshot[k]!==normalized[k])){p.boardSnapshot=normalized;changed=true}
+    }
+    if(!p.ledger||typeof p.ledger!=='object'){
+      p.ledger=generateLedger(p);changed=true;
+    }else{
+      const normalized=normalizeLedger(p.ledger,p);
+      if(p.ledger.title!==normalized.title||p.ledger.description!==normalized.description||p.ledger.manual!==normalized.manual){p.ledger=normalized;changed=true}
+    }
+    if(changed){try{await dbPut(p)}catch(e){console.warn('写真レコードの補完に失敗しました',p.id,e)}}
+  }
+}
 
 // ════════ 画面遷移 ════════
 function showScreen(id){
@@ -993,9 +1072,11 @@ async function shoot(){
     if(bytes<=500*1024||q<=0.4)break;
     q-=0.04;
   }
-  const photo={dataUrl,width:outW,height:outH,bytes,megaPixel:+(outW*outH/1000000).toFixed(2),
+  const photo={schemaVersion:PHOTO_SCHEMA_VERSION,koujiId:boardData.koujiId||'',dataUrl,width:outW,height:outH,bytes,megaPixel:+(outW*outH/1000000).toFixed(2),
     koujimei:boardData.koujimei,koushu:boardData.koushu,shubetsu:boardData.shubetsu,saibetsu:boardData.saibetsu,
-    sokuten:boardData.sokuten,tekiyo:boardData.tekiyo,date:new Date().toISOString()};
+    sokuten:boardData.sokuten,tekiyo:boardData.tekiyo,date:new Date().toISOString(),
+    boardSnapshot:makeBoardSnapshot(boardData)};
+  photo.ledger=generateLedger(photo);
   await dbAdd(photo);photos=await dbGetAll();updateCount();
   showFlash(`撮影 ✓ ${outW}×${outH} / ${Math.round(bytes/1024)}KB`);
 }
@@ -1103,6 +1184,7 @@ function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;',
 // ════════ DETAIL ════════
 function openDetail(id){
   const p=photos.find(x=>x.id===id);if(!p)return;detailId=id;
+  const ledger=normalizeLedger(p.ledger,p);
   document.getElementById('detailImg').src=p.dataUrl;
   document.getElementById('dm-koujimei').textContent=p.koujimei||'―';
   document.getElementById('dm-koushu').textContent=p.koushu||'―';
@@ -1110,6 +1192,8 @@ function openDetail(id){
   document.getElementById('dm-saibetsu').textContent=p.saibetsu||'―';
   document.getElementById('dm-sokuten').textContent=p.sokuten||'―';
   document.getElementById('dm-tekiyo').textContent=p.tekiyo||'―';
+  document.getElementById('dm-ledger-title').textContent=ledger.title||'―';
+  document.getElementById('dm-ledger-description').textContent=ledger.description||'―';
   const kb=p.bytes?Math.round(p.bytes/1024):null;
   const pxText=p.width?`${p.width}×${p.height}`+(kb!==null?`・${kb}KB`:''):'―';
   const okSize=(p.width===1280&&p.height===960)||(p.width===960&&p.height===1280);
@@ -1117,6 +1201,7 @@ function openDetail(id){
   const ok=okSize&&okBytes;
   document.getElementById('dm-pixel').innerHTML=(p.width?pxText:'―')+(p.width?(ok?' <span style="color:#3da876">✓CALS適合</span>':' <span style="color:#d9a93a">▲要確認</span>'):'');
   document.getElementById('dm-date').textContent=fmt(new Date(p.date));
+  document.getElementById('detailWarning').style.display=hasBoardMismatch(p)?'block':'none';
   document.getElementById('detailModal').classList.add('open');
 }
 document.getElementById('detailClose').addEventListener('click',()=>document.getElementById('detailModal').classList.remove('open'));
@@ -1143,19 +1228,26 @@ document.getElementById('detailDel').addEventListener('click',async()=>{if(!conf
 document.getElementById('detailModal').addEventListener('click',e=>{if(e.target===e.currentTarget)document.getElementById('detailModal').classList.remove('open')});
 
 // ════════ 写真の分類編集 ════════
-let editPhotoData={koujiId:'',koushu:'',shubetsu:'',saibetsu:'',sokuten:'',tekiyo:''},editingId=null;
+let editPhotoData={koujiId:'',koushu:'',shubetsu:'',saibetsu:'',sokuten:'',tekiyo:''},editingId=null,ledgerTouched=false,editingLedgerManual=false;
 const peKouji=document.getElementById('pe-kouji'),peKoushu=document.getElementById('pe-koushu'),
       peShubetsu=document.getElementById('pe-shubetsu'),peSaibetsu=document.getElementById('pe-saibetsu'),
       peSelSokuten=document.getElementById('pe-sel-sokuten'),peSelTekiyo=document.getElementById('pe-sel-tekiyo'),
-      peInSokuten=document.getElementById('pe-in-sokuten'),peInTekiyo=document.getElementById('pe-in-tekiyo');
+      peInSokuten=document.getElementById('pe-in-sokuten'),peInTekiyo=document.getElementById('pe-in-tekiyo'),
+      peLedgerTitle=document.getElementById('pe-ledger-title'),peLedgerDescription=document.getElementById('pe-ledger-description');
 const peEditor=document.getElementById('photoEditor');
+function refreshLedgerPreview(){
+  if(ledgerTouched||editingLedgerManual)return;
+  const ledger=generateLedger(editPhotoData);peLedgerTitle.value=ledger.title;peLedgerDescription.value=ledger.description;
+}
 
 document.getElementById('detailEdit').addEventListener('click',()=>{
   const p=photos.find(x=>x.id===detailId);if(!p)return;
   editingId=p.id;
+  const ledger=normalizeLedger(p.ledger,p);
   editPhotoData={koujiId:'',koushu:p.koushu||'',shubetsu:p.shubetsu||'',saibetsu:p.saibetsu||'',sokuten:p.sokuten||'',tekiyo:p.tekiyo||''};
-  // 工事名から該当工事を特定
-  const k=masters.find(m=>m.name===p.koujimei);
+  // 工事IDを優先し、既存写真は工事名が一意に一致するときだけ特定
+  const safeKoujiId=p.koujiId||findUniqueKoujiIdByName(p.koujimei);
+  const k=safeKoujiId?findKouji(safeKoujiId):null;
   peKouji.innerHTML='';peKouji.appendChild(opt('','（工事を選択）'));
   masters.forEach(m=>peKouji.appendChild(opt(m.id,m.name)));
   peKouji.value=k?k.id:'';editPhotoData.koujiId=k?k.id:'';
@@ -1170,6 +1262,7 @@ document.getElementById('detailEdit').addEventListener('click',()=>{
     }
   }
   peBuildSokuten(k,p);peBuildTekiyo(k,p);
+  peLedgerTitle.value=ledger.title;peLedgerDescription.value=ledger.description;ledgerTouched=false;editingLedgerManual=ledger.manual===true;
   peEditor.classList.add('open');
 });
 function peBuildKoushu(k){peKoushu.innerHTML='';peKoushu.appendChild(opt('','―'));if(k)k.koushu.forEach((ks,i)=>peKoushu.appendChild(opt(String(i),ks.name)));document.getElementById('pe-field-shubetsu').style.display='none';document.getElementById('pe-field-saibetsu').style.display='none'}
@@ -1219,13 +1312,20 @@ peSelSokuten.addEventListener('change',()=>{if(peSelSokuten.value==='__manual__'
 peInSokuten.addEventListener('input',()=>{editPhotoData.sokuten=peInSokuten.value});
 peSelTekiyo.addEventListener('change',()=>{if(peSelTekiyo.value==='__manual__'){peInTekiyo.style.display='block';editPhotoData.tekiyo=peInTekiyo.value;peInTekiyo.focus()}else{peInTekiyo.style.display='none';editPhotoData.tekiyo=peSelTekiyo.value}});
 peInTekiyo.addEventListener('input',()=>{editPhotoData.tekiyo=peInTekiyo.value});
+peLedgerTitle.addEventListener('input',()=>{ledgerTouched=true});
+peLedgerDescription.addEventListener('input',()=>{ledgerTouched=true});
+[peKouji,peKoushu,peShubetsu,peSaibetsu,peSelSokuten,peSelTekiyo].forEach(el=>el.addEventListener('change',refreshLedgerPreview));
+[peInSokuten,peInTekiyo].forEach(el=>el.addEventListener('input',refreshLedgerPreview));
 document.getElementById('pe-cancel').addEventListener('click',()=>peEditor.classList.remove('open'));
 document.getElementById('pe-save').addEventListener('click',async()=>{
   const p=photos.find(x=>x.id===editingId);if(!p)return;
   const k=findKouji(editPhotoData.koujiId);
+  p.schemaVersion=Math.max(Number.isInteger(p.schemaVersion)?p.schemaVersion:0,PHOTO_SCHEMA_VERSION);p.koujiId=k?k.id:'';
   p.koujimei=k?k.name:p.koujimei;
   p.koushu=editPhotoData.koushu;p.shubetsu=editPhotoData.shubetsu;p.saibetsu=editPhotoData.saibetsu;
   p.sokuten=editPhotoData.sokuten;p.tekiyo=editPhotoData.tekiyo;
+  if(ledgerTouched){p.ledger={title:peLedgerTitle.value.trim(),description:peLedgerDescription.value.trim(),manual:true}}
+  else if(!p.ledger||p.ledger.manual!==true){p.ledger=generateLedger(p)}
   await dbPut(p);photos=await dbGetAll();
   peEditor.classList.remove('open');
   renderGallery();openDetail(editingId);
@@ -1233,6 +1333,57 @@ document.getElementById('pe-save').addEventListener('click',async()=>{
 
 function buildFilename(p){const dt=new Date(p.date);const base=`${yyyymmdd(dt)}_${p.koushu||'未分類'}_${p.sokuten||''}`.replace(/[\/\\:*?"<>|]/g,'_');return base+'.jpg'}
 function yyyymmdd(d){return`${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}`}
+
+// ════════ 台帳CSV・写真メタデータ ════════
+const CSV_HEADERS=['撮影日時','工事名','施工者','工種','種別','細別','測点','摘要','台帳タイトル','台帳説明文','写真ファイル名'];
+function csvCell(v){return`"${str(v).replace(/"/g,'""')}"`}
+function photoExportRow(item){
+  const p=item.photo||item,ledger=normalizeLedger(p.ledger,p),snapshot=makeBoardSnapshot(p.boardSnapshot||p);
+  return [fmt(new Date(p.date)),p.koujimei,snapshot.contractor,p.koushu,p.shubetsu,p.saibetsu,p.sokuten,p.tekiyo,ledger.title,ledger.description,item.fileName||buildFilename(p)];
+}
+function buildPhotosCsv(items){
+  const lines=[CSV_HEADERS,...items.map(photoExportRow)].map(row=>row.map(csvCell).join(','));
+  return '\uFEFF'+lines.join('\r\n');
+}
+function photoExportObject(item){
+  const p=item.photo||item;
+  return{
+    schemaVersion:Number.isInteger(p.schemaVersion)?p.schemaVersion:PHOTO_SCHEMA_VERSION,
+    id:p.id,koujiId:str(p.koujiId),capturedAt:p.date,
+    koujimei:str(p.koujimei),koushu:str(p.koushu),shubetsu:str(p.shubetsu),saibetsu:str(p.saibetsu),sokuten:str(p.sokuten),tekiyo:str(p.tekiyo),
+    boardSnapshot:makeBoardSnapshot(p.boardSnapshot||p),ledger:normalizeLedger(p.ledger,p),
+    width:p.width||null,height:p.height||null,bytes:p.bytes||null,
+    fileName:item.fileName||buildFilename(p),filePath:item.filePath||item.fileName||buildFilename(p)
+  };
+}
+function buildPhotosJson(items){return JSON.stringify({app:'aoPIC',type:'photos',schemaVersion:PHOTO_SCHEMA_VERSION,exportedAt:new Date().toISOString(),photos:items.map(photoExportObject)},null,2)}
+function makeZipEntries(target){
+  const counters={};
+  return target.map(p=>{
+    const parts=[p.koushu,p.shubetsu,p.saibetsu].filter(Boolean).map(s=>s.replace(/[\/\\:*?"<>|]/g,'_'));
+    const folderPath=parts.length?parts.join('/'):'未分類';
+    counters[folderPath]=(counters[folderPath]||0)+1;
+    const fileName=`${yyyymmdd(new Date(p.date))}_${pad(counters[folderPath])}.jpg`;
+    return{photo:p,folderPath,fileName,filePath:folderPath+'/'+fileName};
+  });
+}
+function populateCsvKoujiSelect(){
+  const el=document.getElementById('csvKouji');if(!el)return;
+  const prev=el.value;el.innerHTML='';el.appendChild(opt('','（工事を選択）'));
+  masters.forEach(k=>el.appendChild(opt(k.id,k.name)));
+  if(photos.some(p=>!p.koujiId))el.appendChild(opt('__unassigned__','未割当（工事IDなし）'));
+  if([...el.options].some(o=>o.value===prev))el.value=prev;
+}
+document.getElementById('csvExport').addEventListener('click',async()=>{
+  const id=document.getElementById('csvKouji').value;if(!id){alert('工事を選択してください');return}
+  const target=id==='__unassigned__'?photos.filter(p=>!p.koujiId):photos.filter(p=>p.koujiId===id);
+  if(!target.length){alert('選択した工事の写真がありません');return}
+  const k=id==='__unassigned__'?null:findKouji(id);
+  const label=(k?k.name:'未割当').replace(/[\/\\:*?"<>|]/g,'_');
+  const name=`写真情報_${label}_${yyyymmdd(new Date())}.csv`;
+  const file=new File([buildPhotosCsv(target)],name,{type:'text/csv;charset=utf-8'});
+  await shareFiles([file],null,name);
+});
 
 // ════════ 共有(方式A: Web Share) ════════
 function dataUrlToFile(dataUrl,filename){
@@ -1260,13 +1411,10 @@ document.getElementById('dlAllBtn').addEventListener('click',async()=>{
   if(!target.length){alert('対象の写真がありません');return}
   const btn=document.getElementById('dlAllBtn');btn.textContent='生成中...';btn.disabled=true;
   try{
-    const zip=new JSZip(),counters={};
-    target.forEach(p=>{
-      const parts=[p.koushu,p.shubetsu,p.saibetsu].filter(Boolean).map(s=>s.replace(/[\/\\:*?"<>|]/g,'_'));
-      const folderPath=parts.length?parts.join('/'):'未分類';const dt=new Date(p.date);
-      counters[folderPath]=(counters[folderPath]||0)+1;
-      zip.folder(folderPath).file(`${yyyymmdd(dt)}_${pad(counters[folderPath])}.jpg`,p.dataUrl.split(',')[1],{base64:true});
-    });
+    const zip=new JSZip(),entries=makeZipEntries(target);
+    entries.forEach(({photo,folderPath,fileName})=>zip.folder(folderPath).file(fileName,photo.dataUrl.split(',')[1],{base64:true}));
+    if(document.getElementById('zipIncludeCsv').checked)zip.file('photos.csv',buildPhotosCsv(entries));
+    if(document.getElementById('zipIncludeJson').checked)zip.file('photos.json',buildPhotosJson(entries));
     const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE'});
     const zipName=`工事写真_${yyyymmdd(new Date())}.zip`;
     const file=new File([blob],zipName,{type:'application/zip'});
@@ -1454,6 +1602,7 @@ document.getElementById('ipReplace').addEventListener('click',()=>doImport(true)
 // ════════ SETTINGS ════════
 document.getElementById('clearAllBtn').addEventListener('click',async()=>{if(!confirm('全写真を削除します。元に戻せません。'))return;await dbClear();photos=[];updateCount();renderStats();alert('削除しました')});
 function renderStats(){
+  populateCsvKoujiSelect();
   document.getElementById('statKouji').textContent=masters.length+'件';
   document.getElementById('statCount').textContent=photos.length+'枚';
   const bytes=photos.reduce((s,p)=>s+p.dataUrl.length*0.75,0);
@@ -1463,7 +1612,7 @@ function renderStats(){
 
 // ════════ INIT ════════
 async function init(){
-  await openDB();photos=await dbGetAll();loadMasters();populateKoujiSelect();
+  await openDB();loadMasters();photos=await dbGetAll();await migratePhotoRecords();populateKoujiSelect();
   const last=localStorage.getItem('lastKoujiId');
   if(last&&findKouji(last)){selKouji.value=last;selKouji.dispatchEvent(new Event('change'))}
   updateCount();await startCamera();
