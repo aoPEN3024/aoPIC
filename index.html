@@ -218,6 +218,12 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .stat-val{font-size:18px;font-weight:700;color:var(--accent2)}
 #csvKouji{width:100%;margin-bottom:8px}
 #csvExport{width:100%;padding:11px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font)}
+#aoalbProject{width:100%;margin-bottom:8px}
+#aoalbExport{width:100%;padding:11px;border:none;border-radius:8px;background:var(--accent2);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font)}
+#aoalbExport:disabled,#aoalbProject:disabled{opacity:.5;cursor:not-allowed}
+#aoalbStatus{display:none;margin-top:9px;padding:9px 10px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);font-size:11px;line-height:1.5;white-space:pre-wrap}
+#aoalbStatus.show{display:block}
+#aoalbStatus.err{color:var(--danger);border-color:rgba(217,83,79,.45);background:rgba(217,83,79,.1)}
 #clearAllBtn{width:100%;padding:14px;background:rgba(217,83,79,.1);color:var(--danger);border:1px solid rgba(217,83,79,.3);border-radius:var(--radius);font-size:14px;font-weight:600;cursor:pointer;margin-top:8px}
 
 /* ── BOARD EDITOR (ボトムシート) ── */
@@ -416,6 +422,15 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
           <button id="csvExport">📄 写真情報CSVを書き出す</button>
         </div>
       </div>
+      <div class="m-section-title">aoALB連携ZIP</div>
+      <div class="setting-group">
+        <div class="setting-row" style="display:block">
+          <div class="setting-sub" style="margin:0 0 10px">写真台帳アプリaoALBへ、写真と分類情報を渡すためのZIPです。1回につき1工事を出力します。</div>
+          <select class="bed-input" id="aoalbProject"><option value="">（工事を選択）</option></select>
+          <button id="aoalbExport">📦 aoALB用ZIPを作成</button>
+          <div id="aoalbStatus" role="status" aria-live="polite"></div>
+        </div>
+      </div>
       <button id="clearAllBtn">⚠️ 全写真を削除</button>
       <div style="text-align:center;margin-top:14px"><button class="back-btn" id="resetShotPos">シャッター位置をリセット</button></div>
     </div>
@@ -571,12 +586,19 @@ function dbGetAll(){return new Promise((res,rej)=>{const t=db.transaction(STORE,
 function dbDelete(id){return new Promise((res,rej)=>{const t=db.transaction(STORE,'readwrite');const r=t.objectStore(STORE).delete(id);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)})}
 function dbClear(){return new Promise((res,rej)=>{const t=db.transaction(STORE,'readwrite');const r=t.objectStore(STORE).clear();r.onsuccess=()=>res();r.onerror=()=>rej(r.error)})}
 
+const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+function isValidUuid(value){return typeof value==='string'&&UUID_RE.test(value)}
+function newUuid(){
+  if(!globalThis.crypto||typeof globalThis.crypto.randomUUID!=='function')throw new Error('この端末では安全なUUIDを生成できません');
+  return globalThis.crypto.randomUUID();
+}
+
 // ════════ MASTERS ════════
 const MKEY='koujiMasters';let masters=[];
 function loadMasters(){
   try{masters=JSON.parse(localStorage.getItem(MKEY))||[]}catch(e){masters=[]}
   if(!masters.length){
-    masters=[{id:'sample',name:'久喜駅補修工事',contractor:'青山塗装株式会社',
+    masters=[{id:'sample',projectUid:newUuid(),name:'久喜駅補修工事',contractor:'青山塗装株式会社',
       koushu:[{name:'塗替塗装工',types:[
         {name:'塗膜除去工',details:[
           {name:'掻き落とし',tekiyo:['素地調整前','素地調整中','素地調整後']},
@@ -587,7 +609,13 @@ function loadMasters(){
       sokuten:['P1橋脚','P2橋脚','A1橋台'],tekiyo:['施工前','施工中','施工後','使用材料','出来形']}];
     saveMasters();
   }
+  ensureProjectUids();
   migrateDetails();
+}
+function ensureProjectUids(){
+  let changed=false;
+  masters.forEach(k=>{if(!isValidUuid(k.projectUid)){k.projectUid=newUuid();changed=true}});
+  if(changed)saveMasters();
 }
 // 旧形式（細別が文字列）を {name,tekiyo:[]} 形式へ移行
 function migrateDetails(){
@@ -643,7 +671,8 @@ function hasBoardMismatch(p){
 }
 async function migratePhotoRecords(){
   for(const p of photos){
-    let changed=false;
+    let changed=false,photoUidAdded=false;
+    if(!isValidUuid(p.photoUid)){p.photoUid=newUuid();changed=true;photoUidAdded=true}
     if(!Number.isInteger(p.schemaVersion)||p.schemaVersion<PHOTO_SCHEMA_VERSION){p.schemaVersion=PHOTO_SCHEMA_VERSION;changed=true}
     if(typeof p.koujiId!=='string'){
       p.koujiId=findUniqueKoujiIdByName(p.koujimei);changed=true;
@@ -662,7 +691,10 @@ async function migratePhotoRecords(){
       const normalized=normalizeLedger(p.ledger,p);
       if(p.ledger.title!==normalized.title||p.ledger.description!==normalized.description||p.ledger.manual!==normalized.manual){p.ledger=normalized;changed=true}
     }
-    if(changed){try{await dbPut(p)}catch(e){console.warn('写真レコードの補完に失敗しました',p.id,e)}}
+    if(changed){try{await dbPut(p)}catch(e){
+      if(photoUidAdded)throw new Error(`写真IDを保存できません（写真ID: ${p.id==null?'不明':p.id}）`);
+      console.warn('写真レコードの補完に失敗しました',p.id,e);
+    }}
   }
 }
 
@@ -1072,7 +1104,7 @@ async function shoot(){
     if(bytes<=500*1024||q<=0.4)break;
     q-=0.04;
   }
-  const photo={schemaVersion:PHOTO_SCHEMA_VERSION,koujiId:boardData.koujiId||'',dataUrl,width:outW,height:outH,bytes,megaPixel:+(outW*outH/1000000).toFixed(2),
+  const photo={schemaVersion:PHOTO_SCHEMA_VERSION,photoUid:newUuid(),koujiId:boardData.koujiId||'',dataUrl,width:outW,height:outH,bytes,megaPixel:+(outW*outH/1000000).toFixed(2),
     koujimei:boardData.koujimei,koushu:boardData.koushu,shubetsu:boardData.shubetsu,saibetsu:boardData.saibetsu,
     sokuten:boardData.sokuten,tekiyo:boardData.tekiyo,date:new Date().toISOString(),
     boardSnapshot:makeBoardSnapshot(boardData)};
@@ -1385,6 +1417,129 @@ document.getElementById('csvExport').addEventListener('click',async()=>{
   await shareFiles([file],null,name);
 });
 
+// ════════ aoALB連携ZIP ════════
+const AOALB_UNASSIGNED='__unassigned__';
+const AOALB_UNASSIGNED_UID_KEY='aoPIC:aoALB:unassignedProjectUid';
+let aoalbExporting=false;
+function isUnassignedPhoto(p){return !str(p&&p.koujiId)||!findKouji(p.koujiId)}
+function getUnassignedProjectUid(){
+  const current=localStorage.getItem(AOALB_UNASSIGNED_UID_KEY);
+  if(isValidUuid(current))return current;
+  const created=newUuid();localStorage.setItem(AOALB_UNASSIGNED_UID_KEY,created);return created;
+}
+function populateAoalbProjectSelect(){
+  const el=document.getElementById('aoalbProject');if(!el)return;
+  const prev=el.value;el.replaceChildren(opt('','（工事を選択）'));
+  masters.forEach(k=>el.appendChild(opt(k.id,`${k.name}（${photos.filter(p=>p.koujiId===k.id).length}枚）`)));
+  const unassigned=photos.filter(isUnassignedPhoto).length;
+  if(unassigned)el.appendChild(opt(AOALB_UNASSIGNED,`未割当（${unassigned}枚）`));
+  if([...el.options].some(o=>o.value===prev))el.value=prev;
+}
+function setAoalbStatus(message,isError=false){
+  const el=document.getElementById('aoalbStatus');
+  el.textContent=message;el.className='show'+(isError?' err':'');
+}
+function aoalbPhotoLabel(p,index){return `写真${index+1}（ID: ${p&&p.id!=null?p.id:'不明'}）`}
+function decodeJpegBytes(dataUrl){
+  if(typeof dataUrl!=='string'||!/^data:image\/jpe?g;base64,/i.test(dataUrl))throw new Error('JPEG形式の写真データではありません');
+  const encoded=dataUrl.slice(dataUrl.indexOf(',')+1).replace(/\s/g,'');
+  if(!encoded)throw new Error('写真データがありません');
+  let raw;try{raw=atob(encoded)}catch(e){throw new Error('JPEGをBase64からデコードできません')}
+  const bytes=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)bytes[i]=raw.charCodeAt(i);
+  if(bytes.length<4||bytes[0]!==0xff||bytes[1]!==0xd8)throw new Error('JPEGの先頭データが不正です');
+  return bytes;
+}
+async function jpegDimensions(bytes){
+  const blob=new Blob([bytes],{type:'image/jpeg'});
+  if(typeof createImageBitmap==='function'){
+    let bitmap;try{bitmap=await createImageBitmap(blob)}catch(e){throw new Error('JPEG画像をデコードできません')}
+    const size={width:bitmap.width,height:bitmap.height};bitmap.close();
+    if(!size.width||!size.height)throw new Error('JPEG画像の寸法が不正です');
+    return size;
+  }
+  return new Promise((resolve,reject)=>{
+    const url=URL.createObjectURL(blob),img=new Image();
+    img.onload=()=>{const size={width:img.naturalWidth,height:img.naturalHeight};URL.revokeObjectURL(url);size.width&&size.height?resolve(size):reject(new Error('JPEG画像の寸法が不正です'))};
+    img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('JPEG画像をデコードできません'))};img.src=url;
+  });
+}
+async function sha256Hex(bytes){
+  if(!globalThis.crypto||!globalThis.crypto.subtle)throw new Error('SHA-256を計算できない環境です');
+  let digest;try{digest=await globalThis.crypto.subtle.digest('SHA-256',bytes)}catch(e){throw new Error('SHA-256の計算に失敗しました')}
+  return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
+}
+function aoalbTimestamp(d=new Date()){
+  return `${yyyymmdd(d)}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+}
+function safeZipLabel(value){
+  const clean=str(value).replace(/[<>:"/\\|?*\x00-\x1f]/g,'_').replace(/[. ]+$/g,'').trim().replace(/_+/g,'_');
+  return Array.from(clean||'未割当').slice(0,60).join('');
+}
+function aoalbTarget(selection){
+  if(selection===AOALB_UNASSIGNED){
+    return{project:{projectUid:getUnassignedProjectUid(),koujiId:'',name:'未割当',contractor:''},photos:photos.filter(isUnassignedPhoto)};
+  }
+  const project=findKouji(selection);if(!project)throw new Error('選択した工事が見つかりません');
+  return{project:{projectUid:project.projectUid,koujiId:project.id,name:str(project.name),contractor:str(project.contractor)},photos:photos.filter(p=>p.koujiId===project.id)};
+}
+function validateAoalbIdentity(project,target,isUnassigned){
+  const errors=[];
+  if(!isValidUuid(project.projectUid))errors.push('工事のprojectUidがないか不正です');
+  if(!isUnassigned&&masters.filter(k=>k.projectUid===project.projectUid).length!==1)errors.push('同じprojectUidを持つ工事が複数あります');
+  const uids=new Set(),paths=new Set();
+  target.forEach((p,index)=>{
+    const label=aoalbPhotoLabel(p,index),path=`photos/${str(p.photoUid)}.jpg`;
+    if(!isValidUuid(p.photoUid))errors.push(`${label}: photoUidがないか不正です`);
+    else if(uids.has(p.photoUid))errors.push(`${label}: photoUidが重複しています`);
+    uids.add(p.photoUid);
+    if(paths.has(path))errors.push(`${label}: filePathが重複しています`);paths.add(path);
+    if(isUnassigned?!isUnassignedPhoto(p):p.koujiId!==project.koujiId)errors.push(`${label}: 選択した工事と一致しません`);
+    if(!p.dataUrl)errors.push(`${label}: 写真データがありません`);
+  });
+  if(errors.length)throw new Error(errors.join('\n'));
+}
+async function buildAoalbExport(project,target,isUnassigned,onProgress=()=>{}){
+  if(!target.length)throw new Error('選択した工事の写真がありません');
+  validateAoalbIdentity(project,target,isUnassigned);
+  const exportId=newUuid(),photoFiles=[],manifestPhotos=[];
+  for(let i=0;i<target.length;i++){
+    const p=target[i],label=aoalbPhotoLabel(p,i);onProgress(`対象工事：${project.name}\n写真枚数：${target.length}\n現在の処理数：${i+1}/${target.length}\nハッシュ計算中`);
+    try{
+      const bytes=decodeJpegBytes(p.dataUrl),size=await jpegDimensions(bytes),sha256=await sha256Hex(bytes),filePath=`photos/${p.photoUid}.jpg`;
+      photoFiles.push({filePath,bytes});
+      manifestPhotos.push({
+        photoUid:p.photoUid,legacyId:p.id,projectUid:project.projectUid,capturedAt:str(p.date),filePath,sha256,mimeType:'image/jpeg',
+        width:size.width,height:size.height,bytes:bytes.byteLength,schemaVersion:Number.isInteger(p.schemaVersion)?p.schemaVersion:PHOTO_SCHEMA_VERSION,
+        classification:{koushu:str(p.koushu),shubetsu:str(p.shubetsu),saibetsu:str(p.saibetsu),sokuten:str(p.sokuten),tekiyo:str(p.tekiyo)},
+        boardSnapshot:makeBoardSnapshot(p.boardSnapshot||p),ledger:normalizeLedger(p.ledger,p)
+      });
+    }catch(e){throw new Error(`${label}: ${e.message}`)}
+  }
+  const manifest={app:'aoPIC',type:'aoALB-export',manifestVersion:1,exportId,exportedAt:new Date().toISOString(),project,photos:manifestPhotos};
+  let manifestJson;try{manifestJson=JSON.stringify(manifest,null,2);JSON.parse(manifestJson)}catch(e){throw new Error('manifest.jsonを生成できません')}
+  const zip=new JSZip(),root=zip.folder('aoalb-export');root.file('manifest.json',manifestJson);
+  photoFiles.forEach(item=>root.file(item.filePath,item.bytes));
+  onProgress(`対象工事：${project.name}\n写真枚数：${target.length}\n現在の処理数：${target.length}/${target.length}\nZIP作成中`);
+  let blob;try{blob=await zip.generateAsync({type:'blob',compression:'DEFLATE'},meta=>onProgress(`対象工事：${project.name}\n写真枚数：${target.length}\n現在の処理数：${target.length}/${target.length}\nZIP作成中：${Math.round(meta.percent)}%`))}
+  catch(e){throw new Error('ZIP作成に失敗しました')}
+  return{blob,manifest};
+}
+document.getElementById('aoalbExport').addEventListener('click',async()=>{
+  if(aoalbExporting)return;
+  const select=document.getElementById('aoalbProject'),button=document.getElementById('aoalbExport'),selection=select.value;
+  if(!selection){setAoalbStatus('工事を選択してください',true);return}
+  aoalbExporting=true;button.disabled=true;select.disabled=true;
+  try{
+    const selected=aoalbTarget(selection),project=selected.project,target=selected.photos;
+    const result=await buildAoalbExport(project,target,selection===AOALB_UNASSIGNED,msg=>setAoalbStatus(msg));
+    const zipName=`aoALB_${safeZipLabel(project.name)}_${aoalbTimestamp()}.zip`;
+    const file=new File([result.blob],zipName,{type:'application/zip'});
+    setAoalbStatus(`対象工事：${project.name}\n写真枚数：${target.length}\n完了：${zipName}`);
+    await shareFiles([file],null,zipName);
+  }catch(e){setAoalbStatus(`出力を中止しました\n${e.message}`,true)}
+  finally{aoalbExporting=false;button.disabled=false;select.disabled=false}
+});
+
 // ════════ 共有(方式A: Web Share) ════════
 function dataUrlToFile(dataUrl,filename){
   const arr=dataUrl.split(','),mime=arr[0].match(/:(.*?);/)[1],bstr=atob(arr[1]);
@@ -1516,7 +1671,7 @@ masterList.addEventListener('click',e=>{
   saveMasters();renderMasters();
 });
 masterList.addEventListener('keydown',e=>{if(e.key!=='Enter')return;const inp=e.target;if(inp.tagName!=='INPUT')return;const btn=inp.nextElementSibling;if(btn&&btn.dataset.act){e.preventDefault();btn.click()}});
-document.getElementById('addKoujiBtn').addEventListener('click',()=>{const inp=document.getElementById('newKoujiName'),v=inp.value.trim();if(!v)return;const k={id:uid(),name:v,contractor:'',koushu:[],sokuten:[],tekiyo:[]};masters.push(k);openKoujiIds.add(k.id);saveMasters();inp.value='';renderMasters()});
+document.getElementById('addKoujiBtn').addEventListener('click',()=>{const inp=document.getElementById('newKoujiName'),v=inp.value.trim();if(!v)return;const k={id:uid(),projectUid:newUuid(),name:v,contractor:'',koushu:[],sokuten:[],tekiyo:[]};masters.push(k);openKoujiIds.add(k.id);saveMasters();inp.value='';renderMasters()});
 document.getElementById('newKoujiName').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();document.getElementById('addKoujiBtn').click()}});
 
 // ════════ 工事設定のバックアップ・共有 ════════
@@ -1524,6 +1679,7 @@ function mastersToJSON(){return JSON.stringify({app:'aoPIC',type:'masters',versi
 function normalizeKouji(x){
   return {
     id:uid(),
+    projectUid:isValidUuid(x.projectUid)?x.projectUid:newUuid(),
     name:String(x.name||'名称未設定'),
     contractor:typeof x.contractor==='string'?x.contractor:'',
     koushu:Array.isArray(x.koushu)?x.koushu.map(ks=>({
@@ -1603,9 +1759,10 @@ document.getElementById('ipReplace').addEventListener('click',()=>doImport(true)
 document.getElementById('clearAllBtn').addEventListener('click',async()=>{if(!confirm('全写真を削除します。元に戻せません。'))return;await dbClear();photos=[];updateCount();renderStats();alert('削除しました')});
 function renderStats(){
   populateCsvKoujiSelect();
+  populateAoalbProjectSelect();
   document.getElementById('statKouji').textContent=masters.length+'件';
   document.getElementById('statCount').textContent=photos.length+'枚';
-  const bytes=photos.reduce((s,p)=>s+p.dataUrl.length*0.75,0);
+  const bytes=photos.reduce((s,p)=>s+str(p.dataUrl).length*0.75,0);
   document.getElementById('statSize').textContent=(bytes/1024/1024).toFixed(1)+' MB';
   const cr=document.getElementById('statCamRes');if(cr&&video.videoWidth)cr.textContent=`${video.videoWidth}×${video.videoHeight}`;
 }
