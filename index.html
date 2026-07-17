@@ -925,7 +925,7 @@ selKoushu.addEventListener('change',()=>{
 });
 selShubetsu.addEventListener('change',()=>{
   const k=findKouji(boardData.koujiId),ks=k&&selKoushu.value!==''?k.koushu[+selKoushu.value]:null,tp=ks&&selShubetsu.value!==''?ks.types[+selShubetsu.value]:null;
-  boardData.shubetsu=tp?tp.name:'';boardData.saibetsu='';selSaibetsu.innerHTML='';selSaibetsu.appendChild(opt('','―'));printConstructionLedger
+  boardData.shubetsu=tp?tp.name:'';boardData.saibetsu='';selSaibetsu.innerHTML='';selSaibetsu.appendChild(opt('','―'));
   if(tp&&tp.details.length){tp.details.forEach(d=>selSaibetsu.appendChild(opt(d.name,d.name)));document.getElementById('field-saibetsu').style.display='block'}
   else{document.getElementById('field-saibetsu').style.display='none'}
   rebuildTekiyo(k);updateBoardDisplay();
