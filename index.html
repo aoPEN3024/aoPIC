@@ -255,6 +255,67 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
 #ipReplace{background:rgba(217,83,79,.15);color:var(--danger);border:1px solid rgba(217,83,79,.3)}
 #ipCancel{width:100%;margin-top:8px;padding:10px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:8px;font-size:13px;cursor:pointer;font-family:var(--font)}
 
+/* ── CONSTRUCTION PHOTO LEDGER ── */
+#ledgerScreen{background:var(--bg)}
+.ledger-form{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.ledger-form .bed-field{margin:0}
+.ledger-form .wide{grid-column:1/-1}
+.ledger-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
+.ledger-actions button,.ledger-preview-btn{padding:11px 8px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font)}
+.ledger-preview-btn{width:100%;margin-top:12px;background:var(--accent);border-color:var(--accent);color:#fff;font-size:14px}
+.ledger-summary{font-size:12px;color:var(--text2);margin:10px 0 7px}
+.ledger-photo-list,.ledger-order-list{display:flex;flex-direction:column;gap:7px}
+.ledger-photo-item,.ledger-order-item{display:flex;align-items:center;gap:9px;background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:8px}
+.ledger-photo-item input{width:20px;height:20px;accent-color:var(--accent);flex-shrink:0}
+.ledger-thumb{width:70px;height:52px;object-fit:cover;background:#000;border-radius:5px;flex-shrink:0}
+.ledger-item-meta{flex:1;min-width:0}
+.ledger-item-title{font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ledger-item-sub{font-size:10px;color:var(--text2);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ledger-order-no{width:22px;text-align:center;font-size:12px;font-weight:700;color:var(--accent2);flex-shrink:0}
+.ledger-move{display:flex;flex-direction:column;gap:4px;flex-shrink:0}
+.ledger-move button{width:34px;height:26px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--text);font-size:13px;cursor:pointer}
+.ledger-move button:disabled{opacity:.3}
+.ledger-empty{text-align:center;color:var(--text2);font-size:12px;padding:20px 10px;background:var(--surface);border:1px dashed var(--border);border-radius:9px}
+
+#ledgerPreview{position:fixed;inset:0;z-index:90;background:#35383f;display:none;flex-direction:column;overflow:hidden}
+#ledgerPreview.open{display:flex}
+#ledgerPreviewToolbar{flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px calc(10px + var(--safe-b));background:var(--surface);border-bottom:1px solid var(--border)}
+#ledgerPreviewToolbar .toolbar-title{font-size:13px;font-weight:700;color:var(--text);flex:1;text-align:center}
+#ledgerPreviewToolbar button{padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font)}
+#ledgerPrintBtn{background:var(--accent)!important;border-color:var(--accent)!important;color:#fff!important}
+#ledgerPages{flex:1;overflow:auto;padding:16px 8px 40px}
+.ledger-page{position:relative;width:min(100%,794px);aspect-ratio:210/297;margin:0 auto 18px;background:#fff;color:#111;box-shadow:0 4px 18px rgba(0,0,0,.42);font-family:-apple-system,BlinkMacSystemFont,"Yu Gothic","Hiragino Kaku Gothic ProN","Meiryo",sans-serif;box-sizing:border-box;overflow:hidden}
+.ledger-cover-title,.ledger-cover-koushu,.ledger-cover-kouji,.ledger-cover-contractor{position:absolute;left:12mm;right:12mm;text-align:center;overflow-wrap:anywhere}
+.ledger-cover-title{top:62mm;font-size:17pt;font-weight:700}
+.ledger-cover-koushu{top:82mm;font-size:16pt;font-weight:700}
+.ledger-cover-kouji{top:191mm;font-size:14pt;font-weight:600}
+.ledger-cover-contractor{top:219mm;font-size:16pt;font-weight:700}
+.ledger-photo-page{padding:16mm 14mm 11mm;display:flex;flex-direction:column;gap:2mm}
+.ledger-slot{height:calc((270mm - 4mm)/3);display:grid;grid-template-columns:68.2% 31.8%;border:0.45mm solid #111;box-sizing:border-box;break-inside:avoid;page-break-inside:avoid;overflow:hidden}
+.ledger-photo-cell{display:flex;align-items:center;justify-content:center;background:#000;overflow:hidden}
+.ledger-photo-cell img{width:100%;height:100%;display:block;object-fit:contain;object-position:center}
+.ledger-slot.empty .ledger-photo-cell{background:#fff;color:#777;font-size:16pt;letter-spacing:.5em}
+.ledger-caption{border-left:0.45mm solid #111;display:flex;flex-direction:column;overflow:hidden;font-size:10.5pt;font-weight:600;line-height:1.35}
+.ledger-caption-line{min-height:10.5mm;padding:2.2mm 2.4mm 1.6mm;box-sizing:border-box;border-bottom:0.35mm dashed #111;overflow-wrap:anywhere;white-space:pre-wrap}
+.ledger-caption-line.caption-text{min-height:12mm}
+.ledger-caption-line.caption-text.long{font-size:9pt}
+.ledger-caption-line.caption-text.very-long{font-size:7.8pt;line-height:1.25}
+.ledger-caption-line:last-child{flex:1;border-bottom:0}
+@media(max-width:520px){.ledger-form{grid-template-columns:1fr}.ledger-form .wide{grid-column:auto}.ledger-cover-title{font-size:14pt}.ledger-cover-koushu{font-size:13pt}.ledger-cover-kouji{font-size:11pt}.ledger-cover-contractor{font-size:13pt}.ledger-caption{font-size:8pt}}
+@media print{
+  @page{size:A4 portrait;margin:0}
+  html,body{width:210mm!important;height:auto!important;background:#fff!important;overflow:visible!important}
+  body>*{display:none!important}
+  #ledgerPreview{display:block!important;position:static!important;inset:auto!important;width:210mm!important;height:auto!important;background:#fff!important;overflow:visible!important}
+  #ledgerPreviewToolbar{display:none!important}
+  #ledgerPages{display:block!important;padding:0!important;overflow:visible!important}
+  .ledger-page{width:210mm!important;height:297mm!important;aspect-ratio:auto!important;margin:0!important;box-shadow:none!important;break-after:page;page-break-after:always}
+  .ledger-page:last-child{break-after:auto;page-break-after:auto}
+  .ledger-caption{font-size:10.5pt!important}
+  .ledger-caption-line.caption-text.long{font-size:9pt!important}
+  .ledger-caption-line.caption-text.very-long{font-size:7.8pt!important}
+}
+
 /* SKETCH EDITOR */
 .sk-ctrl{display:flex;gap:8px}
 .sk-toggle,.sk-open{flex:1;padding:10px 4px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font)}
@@ -420,6 +481,41 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
       <div style="text-align:center;margin-top:14px"><button class="back-btn" id="resetShotPos">シャッター位置をリセット</button></div>
     </div>
   </div>
+
+  <!-- CONSTRUCTION PHOTO LEDGER -->
+  <div class="screen" id="ledgerScreen">
+    <div class="back-bar">
+      <button class="back-btn" data-go="camScreen">←</button>
+      <span class="bb-title">施工状況写真台帳</span>
+    </div>
+    <div class="screen-body">
+      <div class="m-sub">工事と工種を選び、台帳へ載せる写真と順番を指定します。写真レコードは変更しません。</div>
+      <div class="setting-group" style="padding:12px">
+        <div class="ledger-form">
+          <div class="bed-field wide"><div class="bed-label">工事</div><select class="bed-input" id="ledgerKouji"><option value="">（工事を選択）</option></select></div>
+          <div class="bed-field wide"><div class="bed-label">工種</div><select class="bed-input" id="ledgerKoushu"><option value="">（工種を選択）</option></select></div>
+          <div class="bed-field"><div class="bed-label">種別</div><select class="bed-input" id="ledgerShubetsu"><option value="">すべて</option></select></div>
+          <div class="bed-field"><div class="bed-label">細別</div><select class="bed-input" id="ledgerSaibetsu"><option value="">すべて</option></select></div>
+          <div class="bed-field wide"><div class="bed-label">測点</div><select class="bed-input" id="ledgerSokuten"><option value="">すべて</option></select></div>
+        </div>
+        <div class="ledger-actions">
+          <button id="ledgerSelectAll">☑ 全選択</button>
+          <button id="ledgerClearAll">☐ 全解除</button>
+        </div>
+        <div class="ledger-summary" id="ledgerCandidateSummary">対象写真 0枚</div>
+        <div class="ledger-photo-list" id="ledgerCandidateList"></div>
+      </div>
+      <div class="m-section-title">台帳の掲載順</div>
+      <div class="setting-group" style="padding:12px">
+        <div class="ledger-actions" style="grid-template-columns:1fr">
+          <button id="ledgerSortDate">🕒 撮影日時順へ戻す</button>
+        </div>
+        <div class="ledger-summary" id="ledgerSelectionSummary">選択 0枚</div>
+        <div class="ledger-order-list" id="ledgerOrderList"></div>
+        <button class="ledger-preview-btn" id="ledgerOpenPreview">台帳プレビューを表示</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- SIDE MENU -->
@@ -428,6 +524,7 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
   <div class="menu-title"><span class="lg-b">a</span><span class="lg-r">o</span><span class="lg-b">PIC</span></div>
   <button class="menu-item" data-go="camScreen">📷 撮影</button>
   <button class="menu-item" data-go="galleryScreen">🗂 写真一覧</button>
+  <button class="menu-item" data-go="ledgerScreen">📖 台帳作成</button>
   <button class="menu-item" data-go="masterScreen">📁 工種設定</button>
   <button class="menu-item" data-go="settingsScreen">⚙️ 設定</button>
   <div class="menu-div"></div>
@@ -504,6 +601,16 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
     <button id="pe-cancel">キャンセル</button>
     <button id="pe-save">保存</button>
   </div>
+</div>
+
+<!-- CONSTRUCTION LEDGER PREVIEW / PRINT -->
+<div id="ledgerPreview" aria-hidden="true">
+  <div id="ledgerPreviewToolbar">
+    <button id="ledgerClosePreview">閉じる</button>
+    <span class="toolbar-title">A4・施工状況写真台帳</span>
+    <button id="ledgerPrintBtn">印刷／PDF保存</button>
+  </div>
+  <div id="ledgerPages"></div>
 </div>
 
 <!-- MASTER IMPORT -->
@@ -672,6 +779,7 @@ function showScreen(id){
   if(id==='galleryScreen')renderGallery();
   if(id==='settingsScreen')renderStats();
   if(id==='masterScreen')renderMasters();
+  if(id==='ledgerScreen')renderLedgerSetup();
   closeMenu();
 }
 
@@ -817,7 +925,7 @@ selKoushu.addEventListener('change',()=>{
 });
 selShubetsu.addEventListener('change',()=>{
   const k=findKouji(boardData.koujiId),ks=k&&selKoushu.value!==''?k.koushu[+selKoushu.value]:null,tp=ks&&selShubetsu.value!==''?ks.types[+selShubetsu.value]:null;
-  boardData.shubetsu=tp?tp.name:'';boardData.saibetsu='';selSaibetsu.innerHTML='';selSaibetsu.appendChild(opt('','―'));
+  boardData.shubetsu=tp?tp.name:'';boardData.saibetsu='';selSaibetsu.innerHTML='';selSaibetsu.appendChild(opt('','―'));printConstructionLedger
   if(tp&&tp.details.length){tp.details.forEach(d=>selSaibetsu.appendChild(opt(d.name,d.name)));document.getElementById('field-saibetsu').style.display='block'}
   else{document.getElementById('field-saibetsu').style.display='none'}
   rebuildTekiyo(k);updateBoardDisplay();
@@ -1421,6 +1529,127 @@ document.getElementById('dlAllBtn').addEventListener('click',async()=>{
     await shareFiles([file],null,zipName);
   }finally{updateZipCount(getFilteredPhotos().length);btn.disabled=false}
 });
+
+// ════════ 施工状況写真台帳 ════════
+const ledgerKouji=document.getElementById('ledgerKouji'),ledgerKoushu=document.getElementById('ledgerKoushu'),
+      ledgerShubetsu=document.getElementById('ledgerShubetsu'),ledgerSaibetsu=document.getElementById('ledgerSaibetsu'),ledgerSokuten=document.getElementById('ledgerSokuten');
+let ledgerSelection=[],ledgerOriginalTitle='';
+
+function ledgerPhotoKoujiId(p){
+  if(p&&p.koujiId&&findKouji(p.koujiId))return p.koujiId;
+  return findUniqueKoujiIdByName(p&&p.koujimei);
+}
+function ledgerUnique(list,key){
+  return [...new Set(list.map(p=>str(p&&p[key]).trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ja'));
+}
+function ledgerSetOptions(el,values,label){
+  const prev=el.value;el.innerHTML='';el.appendChild(opt('',label));values.forEach(v=>el.appendChild(opt(v,v)));
+  el.value=values.includes(prev)?prev:'';
+}
+function ledgerPhotosForProject(){
+  if(!ledgerKouji.value)return[];
+  return photos.filter(p=>ledgerPhotoKoujiId(p)===ledgerKouji.value);
+}
+function ledgerCandidatePhotos(){
+  if(!ledgerKouji.value||!ledgerKoushu.value)return[];
+  return ledgerPhotosForProject().filter(p=>
+    p.koushu===ledgerKoushu.value&&
+    (!ledgerShubetsu.value||p.shubetsu===ledgerShubetsu.value)&&
+    (!ledgerSaibetsu.value||p.saibetsu===ledgerSaibetsu.value)&&
+    (!ledgerSokuten.value||p.sokuten===ledgerSokuten.value)
+  ).sort((a,b)=>new Date(a.date||0)-new Date(b.date||0));
+}
+function ledgerRefreshFilterOptions(level){
+  const project=ledgerPhotosForProject();
+  if(level<=1){
+    const k=findKouji(ledgerKouji.value),masterNames=(k&&k.koushu||[]).map(x=>str(x.name).trim()).filter(Boolean);
+    ledgerSetOptions(ledgerKoushu,[...new Set([...masterNames,...ledgerUnique(project,'koushu')])],'（工種を選択）');
+  }
+  const byKoushu=project.filter(p=>!ledgerKoushu.value||p.koushu===ledgerKoushu.value);
+  if(level<=2)ledgerSetOptions(ledgerShubetsu,ledgerUnique(byKoushu,'shubetsu'),'すべて');
+  const byShubetsu=byKoushu.filter(p=>!ledgerShubetsu.value||p.shubetsu===ledgerShubetsu.value);
+  if(level<=3)ledgerSetOptions(ledgerSaibetsu,ledgerUnique(byShubetsu,'saibetsu'),'すべて');
+  const bySaibetsu=byShubetsu.filter(p=>!ledgerSaibetsu.value||p.saibetsu===ledgerSaibetsu.value);
+  if(level<=4)ledgerSetOptions(ledgerSokuten,ledgerUnique(bySaibetsu,'sokuten'),'すべて');
+}
+function renderLedgerSetup(){
+  const prev=ledgerKouji.value;
+  ledgerKouji.innerHTML='';ledgerKouji.appendChild(opt('','（工事を選択）'));
+  masters.forEach(k=>ledgerKouji.appendChild(opt(k.id,k.name)));
+  if(masters.some(k=>k.id===prev))ledgerKouji.value=prev;
+  ledgerRefreshFilterOptions(1);renderLedgerCandidates();renderLedgerOrder();
+}
+function renderLedgerCandidates(){
+  const target=ledgerCandidatePhotos(),box=document.getElementById('ledgerCandidateList');
+  document.getElementById('ledgerCandidateSummary').textContent=`対象写真 ${target.length}枚`;
+  if(!target.length){box.innerHTML='<div class="ledger-empty">工事と工種を選択すると、対象写真が表示されます。</div>';return}
+  box.innerHTML=target.map(p=>{
+    const ledger=normalizeLedger(p.ledger,p),checked=ledgerSelection.some(id=>String(id)===String(p.id));
+    return `<label class="ledger-photo-item"><input type="checkbox" data-ledger-id="${p.id}"${checked?' checked':''}><img class="ledger-thumb" src="${p.dataUrl}" alt=""><span class="ledger-item-meta"><span class="ledger-item-title">${esc(ledger.title||ledger.description||'台帳文なし')}</span><span class="ledger-item-sub">${esc(p.sokuten||'測点なし')}・${esc(fmt(new Date(p.date)))}</span></span></label>`;
+  }).join('');
+  box.querySelectorAll('input[data-ledger-id]').forEach(input=>input.addEventListener('change',()=>{
+    const p=target.find(x=>String(x.id)===input.dataset.ledgerId);if(!p)return;
+    if(input.checked){if(!ledgerSelection.some(id=>String(id)===String(p.id)))ledgerSelection.push(p.id)}
+    else ledgerSelection=ledgerSelection.filter(id=>String(id)!==String(p.id));
+    renderLedgerOrder();
+  }));
+}
+function ledgerSelectedPhotos(){
+  ledgerSelection=ledgerSelection.filter(id=>photos.some(p=>String(p.id)===String(id)));
+  return ledgerSelection.map(id=>photos.find(p=>String(p.id)===String(id))).filter(Boolean);
+}
+function renderLedgerOrder(){
+  const selected=ledgerSelectedPhotos(),box=document.getElementById('ledgerOrderList');
+  document.getElementById('ledgerSelectionSummary').textContent=`選択 ${selected.length}枚（写真ページ ${Math.ceil(selected.length/3)}ページ）`;
+  if(!selected.length){box.innerHTML='<div class="ledger-empty">写真が未選択の場合、プレビューは表紙のみです。</div>';return}
+  box.innerHTML=selected.map((p,i)=>{
+    const ledger=normalizeLedger(p.ledger,p);
+    return `<div class="ledger-order-item"><span class="ledger-order-no">${i+1}</span><img class="ledger-thumb" src="${p.dataUrl}" alt=""><span class="ledger-item-meta"><span class="ledger-item-title">${esc(ledger.title||ledger.description||'台帳文なし')}</span><span class="ledger-item-sub">${esc(p.sokuten||'測点なし')}・${esc(fmt(new Date(p.date)))}</span></span><span class="ledger-move"><button data-move="up" data-ledger-id="${p.id}"${i===0?' disabled':''} aria-label="上へ">↑</button><button data-move="down" data-ledger-id="${p.id}"${i===selected.length-1?' disabled':''} aria-label="下へ">↓</button></span></div>`;
+  }).join('');
+  box.querySelectorAll('button[data-move]').forEach(btn=>btn.addEventListener('click',()=>{
+    const i=ledgerSelection.findIndex(id=>String(id)===btn.dataset.ledgerId),to=btn.dataset.move==='up'?i-1:i+1;
+    if(i<0||to<0||to>=ledgerSelection.length)return;
+    [ledgerSelection[i],ledgerSelection[to]]=[ledgerSelection[to],ledgerSelection[i]];renderLedgerOrder();renderLedgerCandidates();
+  }));
+}
+function ledgerCaptionText(p){
+  const ledger=normalizeLedger(p&&p.ledger,p);
+  return str(ledger.title).trim()||str(ledger.description).trim();
+}
+function ledgerSlotHtml(p){
+  if(!p)return '<div class="ledger-slot empty"><div class="ledger-photo-cell">余 白</div><div class="ledger-caption"><div class="ledger-caption-line">工種：</div><div class="ledger-caption-line">測点：</div><div class="ledger-caption-line caption-text"></div><div class="ledger-caption-line"></div><div class="ledger-caption-line"></div><div class="ledger-caption-line"></div></div></div>';
+  const caption=ledgerCaptionText(p),length=[...caption].length,longClass=length>80?' very-long':length>40?' long':'';
+  return `<div class="ledger-slot"><div class="ledger-photo-cell"><img src="${p.dataUrl}" alt=""></div><div class="ledger-caption"><div class="ledger-caption-line">工種：${esc(p.koushu||'')}</div><div class="ledger-caption-line">測点：${esc(p.sokuten||'')}</div><div class="ledger-caption-line caption-text${longClass}">${esc(caption)}</div><div class="ledger-caption-line"></div><div class="ledger-caption-line"></div><div class="ledger-caption-line"></div></div></div>`;
+}
+function buildLedgerPreview(){
+  const k=findKouji(ledgerKouji.value),selected=ledgerSelectedPhotos(),first=selected[0];
+  const koujimei=k?k.name:str(first&&first.koujimei),contractor=str(k&&k.contractor)||str(first&&makeBoardSnapshot(first.boardSnapshot||first).contractor);
+  const koushu=ledgerKoushu.value||str(first&&first.koushu);
+  let html=`<section class="ledger-page ledger-cover"><div class="ledger-cover-title">施工状況写真</div><div class="ledger-cover-koushu">${esc(koushu)}</div><div class="ledger-cover-kouji">${esc(koujimei)}</div><div class="ledger-cover-contractor">${esc(contractor)}</div></section>`;
+  for(let i=0;i<selected.length;i+=3){
+    const page=selected.slice(i,i+3);while(page.length<3)page.push(null);
+    html+=`<section class="ledger-page ledger-photo-page">${page.map(ledgerSlotHtml).join('')}</section>`;
+  }
+  document.getElementById('ledgerPages').innerHTML=html;
+  ledgerOriginalTitle=document.title;document.title=`施工状況写真_${koujimei||'工事'}_${koushu||'工種'}`;
+}
+async function printConstructionLedger(){
+  const images=[...document.querySelectorAll('#ledgerPages img')];
+  await Promise.all(images.map(img=>img.decode?img.decode().catch(()=>{}):Promise.resolve()));
+  window.print();
+}
+
+ledgerKouji.addEventListener('change',()=>{ledgerSelection=[];ledgerRefreshFilterOptions(1);renderLedgerCandidates();renderLedgerOrder()});
+ledgerKoushu.addEventListener('change',()=>{ledgerSelection=[];ledgerRefreshFilterOptions(2);renderLedgerCandidates();renderLedgerOrder()});
+ledgerShubetsu.addEventListener('change',()=>{ledgerRefreshFilterOptions(3);renderLedgerCandidates()});
+ledgerSaibetsu.addEventListener('change',()=>{ledgerRefreshFilterOptions(4);renderLedgerCandidates()});
+ledgerSokuten.addEventListener('change',renderLedgerCandidates);
+document.getElementById('ledgerSelectAll').addEventListener('click',()=>{ledgerCandidatePhotos().forEach(p=>{if(!ledgerSelection.some(id=>String(id)===String(p.id)))ledgerSelection.push(p.id)});renderLedgerCandidates();renderLedgerOrder()});
+document.getElementById('ledgerClearAll').addEventListener('click',()=>{ledgerSelection=[];renderLedgerCandidates();renderLedgerOrder()});
+document.getElementById('ledgerSortDate').addEventListener('click',()=>{ledgerSelection.sort((a,b)=>{const pa=photos.find(p=>String(p.id)===String(a)),pb=photos.find(p=>String(p.id)===String(b));return new Date(pa&&pa.date||0)-new Date(pb&&pb.date||0)});renderLedgerOrder();renderLedgerCandidates()});
+document.getElementById('ledgerOpenPreview').addEventListener('click',()=>{buildLedgerPreview();const preview=document.getElementById('ledgerPreview');preview.classList.add('open');preview.setAttribute('aria-hidden','false')});
+document.getElementById('ledgerClosePreview').addEventListener('click',()=>{const preview=document.getElementById('ledgerPreview');preview.classList.remove('open');preview.setAttribute('aria-hidden','true');if(ledgerOriginalTitle)document.title=ledgerOriginalTitle});
+document.getElementById('ledgerPrintBtn').addEventListener('click',printConstructionLedger);
 
 // ════════ MASTER ════════
 const masterList=document.getElementById('masterList');let openKoujiIds=new Set(),openKoushuIds=new Set(),openDetailIds=new Set();
