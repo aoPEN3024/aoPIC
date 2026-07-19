@@ -4,7 +4,6 @@ const CONFIG_KEY = "aoPIC:cloudConfig";
 const MODE_KEY = "aoPIC:sharingMode";
 const SETTINGS_KEY = "photoSyncSettings";
 const IDENTITY_KEY = "cloudIdentity";
-const SUPABASE_SDK_URL = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.106.2/+esm";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MODES = new Set(["wifi_only", "any_network", "manual"]);
 const bridge = window.aoPICCloudBridge;
@@ -248,30 +247,83 @@ async function createPackage(queueItem) {
 }
 
 async function createProvider(config) {
-  const { createClient } = await import(SUPABASE_SDK_URL);
-  const client = createClient(config.projectUrl, config.publishableKey, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: "aoPIC:supabase-auth" }
-  });
+  const authKey = "aoPIC:supabase-auth-rest";
+  let session;
+  try { session = JSON.parse(localStorage.getItem(authKey) || "null"); } catch (_) { session = null; }
+
+  async function timedFetch(url, options) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
+    try { return await fetch(url, { ...options, signal: controller.signal }); }
+    catch (error) {
+      if (error?.name === "AbortError") throw new Error("Supabase??20??????????????????????????????");
+      throw error;
+    } finally { clearTimeout(timeout); }
+  }
+
+  async function authFetch(path, options = {}) {
+    const response = await timedFetch(`${config.projectUrl}/auth/v1/${path}`, {
+      ...options, headers: { apikey: config.publishableKey, "Content-Type": "application/json", ...(options.headers || {}) }
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw Object.assign(new Error(data.msg || data.message || `????????????HTTP ${response.status}??`), { code: String(response.status) });
+    return data;
+  }
+
+  async function ensureSession(forceRefresh = false) {
+    const expiresSoon = !session?.access_token || Number(session.expires_at || 0) * 1000 < Date.now() + 60000;
+    if (!forceRefresh && !expiresSoon) return session;
+    if (session?.refresh_token) {
+      try {
+        session = await authFetch("token?grant_type=refresh_token", { method: "POST", body: JSON.stringify({ refresh_token: session.refresh_token }) });
+      } catch (_) { session = null; }
+    }
+    if (!session?.access_token) session = await authFetch("signup", { method: "POST", body: "{}" });
+    localStorage.setItem(authKey, JSON.stringify(session));
+    return session;
+  }
+
+  async function api(path, { method = "GET", body, headers = {}, raw = false, retry = true } = {}) {
+    await ensureSession();
+    const response = await timedFetch(`${config.projectUrl}${path}`, {
+      method, body: body == null ? undefined : raw ? body : JSON.stringify(body),
+      headers: { apikey: config.publishableKey, Authorization: `Bearer ${session.access_token}`, ...(raw ? {} : { "Content-Type": "application/json" }), ...headers }
+    });
+    if (response.status === 401 && retry) {
+      await ensureSession(true);
+      return api(path, { method, body, headers, raw, retry: false });
+    }
+    const text = await response.text();
+    const data = text ? (() => { try { return JSON.parse(text); } catch (_) { return text; } })() : null;
+    if (!response.ok) throw Object.assign(new Error(data?.message || data?.msg || data?.error || `Supabase??????????HTTP ${response.status}??`), { code: data?.code || String(response.status), details: data?.details });
+    return data;
+  }
+
+  function query(table, params = {}) {
+    const search = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => value != null && search.set(key, String(value)));
+    return `/rest/v1/${table}?${search}`;
+  }
+
+  const oneOrNull = rows => Array.isArray(rows) && rows.length ? rows[0] : null;
+  const insert = (table, body, onConflict = "") => api(`/rest/v1/${table}${onConflict ? `?on_conflict=${encodeURIComponent(onConflict)}` : ""}`, {
+    method: "POST", body, headers: { Prefer: `${onConflict ? "resolution=merge-duplicates," : ""}return=representation` }
+  }).then(rows => oneOrNull(rows));
+
   return {
     async authenticate() {
-      const current = await client.auth.getSession();
-      if (current.error) throw current.error;
-      if (current.data.session?.user) return current.data.session.user.id;
-      const signed = await client.auth.signInAnonymously();
-      if (signed.error) throw signed.error;
-      return signed.data.user.id;
+      const current = await ensureSession();
+      return current.user?.id;
     },
     async restoreMembership() {
-      const result = await client.from("site_members").select("site_id,role,device_name,sites!inner(site_code,name)").eq("active", true).order("last_seen_at", { ascending: false }).limit(2);
-      if (result.error) throw result.error;
-      if (!Array.isArray(result.data) || result.data.length !== 1) return null;
-      const row = result.data[0];
+      const rows = await api(query("site_members", { select: "site_id,role,device_name,sites!inner(site_code,name)", active: "eq.true", order: "last_seen_at.desc", limit: 2 }));
+      if (!Array.isArray(rows) || rows.length !== 1) return null;
+      const row = rows[0];
       return { siteId: row.site_id, siteCode: row.sites?.site_code, siteName: row.sites?.name, role: row.role, deviceName: row.device_name || "????" };
     },
     async joinSite({ siteCode, joinCode, deviceName }) {
-      const result = await client.rpc("join_site", { p_site_code: siteCode, p_join_code: joinCode, p_device_name: deviceName });
-      if (result.error) throw result.error;
-      const row = Array.isArray(result.data) ? result.data[0] : result.data;
+      const data = await api("/rest/v1/rpc/join_site", { method: "POST", body: { p_site_code: siteCode, p_join_code: joinCode, p_device_name: deviceName } });
+      const row = Array.isArray(data) ? data[0] : data;
       if (!row?.site_id) {
         if (row?.error_code === "temporarily_blocked") throw new Error("????????????????????15?????????????");
         if (row?.error_code === "membership_disabled") throw new Error("??????????????????");
@@ -281,62 +333,48 @@ async function createProvider(config) {
     },
     async uploadPhotoPackage(pkg) {
       const { siteId, project, photo, originalBlob, thumbnail, eventId, deviceName } = pkg;
-      let projectRow;
-      let result = await client.from("projects").select("id,project_uid").eq("site_id", siteId).eq("project_uid", project.projectUid).maybeSingle();
-      if (result.error) throw result.error;
-      projectRow = result.data;
+      let projectRow = oneOrNull(await api(query("projects", { select: "id,project_uid", site_id: `eq.${siteId}`, project_uid: `eq.${project.projectUid}`, limit: 1 })));
       if (!projectRow) {
-        result = await client.from("projects").insert({ site_id: siteId, project_uid: project.projectUid, kouji_id: project.koujiId, name: project.name, contractor: project.contractor }).select("id,project_uid").single();
-        if (result.error?.code === "23505") result = await client.from("projects").select("id,project_uid").eq("site_id", siteId).eq("project_uid", project.projectUid).single();
-        if (result.error) throw result.error;
-        projectRow = result.data;
+        try { projectRow = await insert("projects", { site_id: siteId, project_uid: project.projectUid, kouji_id: project.koujiId, name: project.name, contractor: project.contractor }); }
+        catch (error) {
+          if (error.code !== "23505") throw error;
+          projectRow = oneOrNull(await api(query("projects", { select: "id,project_uid", site_id: `eq.${siteId}`, project_uid: `eq.${project.projectUid}`, limit: 1 })));
+        }
       }
-      result = await client.from("photos").select("id,project_id,photo_uid,sha256,bytes").eq("site_id", siteId).eq("photo_uid", photo.photoUid).maybeSingle();
-      if (result.error) throw result.error;
-      let photoRow = result.data;
+      let photoRow = oneOrNull(await api(query("photos", { select: "id,project_id,photo_uid,sha256,bytes", site_id: `eq.${siteId}`, photo_uid: `eq.${photo.photoUid}`, limit: 1 })));
       if (photoRow && (photoRow.project_id !== projectRow.id || photoRow.sha256 !== photo.sha256 || Number(photoRow.bytes) !== photo.bytes)) throw new Error("??photoUid???????????????");
       if (!photoRow) {
-        const sameHash = await client.from("photos").select("photo_uid").eq("site_id", siteId).eq("sha256", photo.sha256).maybeSingle();
-        if (sameHash.error) throw sameHash.error;
-        if (sameHash.data) throw new Error("??SHA-256???photoUid??????????");
-        result = await client.from("photos").insert({
-          site_id: siteId, project_id: projectRow.id, photo_uid: photo.photoUid, captured_at: photo.capturedAt,
-          sha256: photo.sha256, mime_type: "image/jpeg", width: photo.width, height: photo.height, bytes: photo.bytes, metadata: photo.metadata
-        }).select("id,project_id,photo_uid,sha256,bytes").single();
-        if (result.error?.code === "23505") result = await client.from("photos").select("id,project_id,photo_uid,sha256,bytes").eq("site_id", siteId).eq("photo_uid", photo.photoUid).single();
-        if (result.error) throw result.error;
-        photoRow = result.data;
+        const sameHash = oneOrNull(await api(query("photos", { select: "photo_uid", site_id: `eq.${siteId}`, sha256: `eq.${photo.sha256}`, limit: 1 })));
+        if (sameHash) throw new Error("??SHA-256???photoUid??????????");
+        try {
+          photoRow = await insert("photos", { site_id: siteId, project_id: projectRow.id, photo_uid: photo.photoUid, captured_at: photo.capturedAt, sha256: photo.sha256, mime_type: "image/jpeg", width: photo.width, height: photo.height, bytes: photo.bytes, metadata: photo.metadata });
+        } catch (error) {
+          if (error.code !== "23505") throw error;
+          photoRow = oneOrNull(await api(query("photos", { select: "id,project_id,photo_uid,sha256,bytes", site_id: `eq.${siteId}`, photo_uid: `eq.${photo.photoUid}`, limit: 1 })));
+        }
         if (photoRow.project_id !== projectRow.id || photoRow.sha256 !== photo.sha256 || Number(photoRow.bytes) !== photo.bytes) throw new Error("??photoUid???????????????");
       }
       const originalPath = `${siteId}/photos/${photo.photoUid}.jpg`;
       const thumbnailPath = `${siteId}/thumbnails/${photo.photoUid}.jpg`;
-      result = await client.from("photo_objects").select("status,object_path,sha256,bytes,upload_completed_at,thumbnail_object_path,thumbnail_sha256,thumbnail_bytes").eq("photo_id", photoRow.id).maybeSingle();
-      if (result.error) throw result.error;
-      const existing = result.data;
+      const existing = oneOrNull(await api(query("photo_objects", { select: "status,object_path,sha256,bytes,upload_completed_at,thumbnail_object_path,thumbnail_sha256,thumbnail_bytes", photo_id: `eq.${photoRow.id}`, limit: 1 })));
       if (existing?.status === "complete") {
         const same = existing.object_path === originalPath && existing.sha256 === photo.sha256 && Number(existing.bytes) === photo.bytes
           && existing.thumbnail_object_path === thumbnailPath && existing.thumbnail_sha256 === thumbnail.sha256 && Number(existing.thumbnail_bytes) === thumbnail.bytes;
         if (!same) throw new Error("?????????????????????????");
       } else {
-        const bucket = client.storage.from("site-photos");
-        let upload = await bucket.upload(originalPath, originalBlob, { contentType: "image/jpeg", upsert: true, cacheControl: "31536000" });
-        if (upload.error) throw upload.error;
-        upload = await bucket.upload(thumbnailPath, thumbnail.blob, { contentType: "image/jpeg", upsert: true, cacheControl: "31536000" });
-        if (upload.error) throw upload.error;
+        await api(`/storage/v1/object/site-photos/${originalPath}`, { method: "POST", body: originalBlob, raw: true, headers: { "Content-Type": "image/jpeg", "x-upsert": "true", "cache-control": "max-age=31536000" } });
+        await api(`/storage/v1/object/site-photos/${thumbnailPath}`, { method: "POST", body: thumbnail.blob, raw: true, headers: { "Content-Type": "image/jpeg", "x-upsert": "true", "cache-control": "max-age=31536000" } });
         const completedAt = new Date().toISOString();
-        result = await client.from("photo_objects").upsert({
+        await insert("photo_objects", {
           photo_id: photoRow.id, site_id: siteId, bucket_id: "site-photos", object_path: originalPath, sha256: photo.sha256,
           bytes: photo.bytes, status: "complete", upload_completed_at: completedAt, thumbnail_object_path: thumbnailPath,
           thumbnail_sha256: thumbnail.sha256, thumbnail_bytes: thumbnail.bytes, thumbnail_width: thumbnail.width, thumbnail_height: thumbnail.height
-        }, { onConflict: "photo_id" });
-        if (result.error) throw result.error;
+        }, "photo_id");
       }
-      result = await client.from("photo_objects").select("status,sha256,bytes,thumbnail_sha256,thumbnail_bytes,upload_completed_at").eq("photo_id", photoRow.id).single();
-      if (result.error) throw result.error;
-      const stored = result.data;
+      const stored = oneOrNull(await api(query("photo_objects", { select: "status,sha256,bytes,thumbnail_sha256,thumbnail_bytes,upload_completed_at", photo_id: `eq.${photoRow.id}`, limit: 1 })));
       if (stored.status !== "complete" || stored.sha256 !== photo.sha256 || Number(stored.bytes) !== photo.bytes || stored.thumbnail_sha256 !== thumbnail.sha256 || Number(stored.thumbnail_bytes) !== thumbnail.bytes || !stored.upload_completed_at) throw new Error("Supabase??????????????");
-      result = await client.from("sync_events").insert({ event_id: eventId, site_id: siteId, entity_type: "photo", entity_id: photoRow.id, event_type: "photo_synced", device_name: deviceName, payload: { photoUid: photo.photoUid, sha256: photo.sha256 }, created_at: stored.upload_completed_at });
-      if (result.error && result.error.code !== "23505") throw result.error;
+      try { await insert("sync_events", { event_id: eventId, site_id: siteId, entity_type: "photo", entity_id: photoRow.id, event_type: "photo_synced", device_name: deviceName, payload: { photoUid: photo.photoUid, sha256: photo.sha256 }, created_at: stored.upload_completed_at }); }
+      catch (error) { if (error.code !== "23505") throw error; }
       return { storedAt: stored.upload_completed_at };
     }
   };
@@ -519,6 +557,7 @@ ui.mode.addEventListener("change", async () => {
   message(`??????${ui.mode.options[ui.mode.selectedIndex].textContent}?????????`);
   processQueue();
 });
+ui.project.addEventListener("change", render);
 
 ui.enqueue.addEventListener("click", async () => {
   if (!identity?.siteId || identity.role === "viewer") return;
@@ -578,7 +617,11 @@ async function init() {
     ui.projectUrl.value = localConfig.projectUrl;
     message("git???????????????????????????");
   }
-  if (config && localStorage.getItem(MODE_KEY) === "cloud") await connect(config, true);
+  if (config && localStorage.getItem(MODE_KEY) === "cloud") {
+    message("Supabase????????????????");
+    await connect(config, true);
+    message(identity?.siteId ? `${identity.siteName || identity.siteCode}?????????` : "??????????????????????????");
+  }
   else message("??????????????????????");
 }
 
