@@ -8,7 +8,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-
 const MODES = new Set(["wifi_only", "any_network", "manual"]);
 const bridge = window.aoPICCloudBridge;
 
-if (!bridge) throw new Error("aoPIC???????????????");
+if (!bridge) throw new Error("aoPICのデータ連携が初期化されていません");
 
 let cloudDb;
 let provider;
@@ -37,7 +37,7 @@ function requestResult(request) {
 function transactionDone(transaction) {
   return new Promise((resolve, reject) => {
     transaction.oncomplete = () => resolve();
-    transaction.onabort = () => reject(transaction.error || new Error("????????????????????"));
+    transaction.onabort = () => reject(transaction.error || new Error("データの保存が中断されました"));
     transaction.onerror = () => {};
   });
 }
@@ -97,7 +97,7 @@ async function recoverInterrupted() {
   const rows = await requestResult(store.getAll());
   const now = new Date().toISOString();
   rows.filter(row => row.status === "uploading").forEach(row => store.put({
-    ...row, status: "pending", errorType: "interrupted", lastError: "????????????????????", updatedAt: now
+    ...row, status: "pending", errorType: "interrupted", lastError: "送信が中断されました", updatedAt: now
   }));
   await transactionDone(tx);
 }
@@ -106,15 +106,15 @@ function validateConfig(input) {
   const projectUrl = String(input?.projectUrl || "").trim().replace(/\/+$/, "");
   const publishableKey = String(input?.publishableKey || "").trim();
   let url;
-  try { url = new URL(projectUrl); } catch (_) { throw new Error("Project URL?????????????"); }
+  try { url = new URL(projectUrl); } catch (_) { throw new Error("Project URLの形式が正しくありません"); }
   const local = ["localhost", "127.0.0.1"].includes(url.hostname);
-  if (url.protocol !== "https:" && !(local && url.protocol === "http:")) throw new Error("Project URL?HTTPS??????????");
-  if (url.username || url.password || url.search || url.hash) throw new Error("Project URL????????????????");
-  if (!local && (!/^[a-z0-9-]+\.supabase\.co$/i.test(url.hostname) || (url.pathname && url.pathname !== "/"))) throw new Error("Supabase?Project URL??????????");
+  if (url.protocol !== "https:" && !(local && url.protocol === "http:")) throw new Error("Project URLはHTTPSを指定してください");
+  if (url.username || url.password || url.search || url.hash) throw new Error("Project URLに不要な情報が含まれています");
+  if (!local && (!/^[a-z0-9-]+\.supabase\.co$/i.test(url.hostname) || (url.pathname && url.pathname !== "/"))) throw new Error("接続先のURLが正しくありません");
   if (/^(sb_secret_|eyJ)/i.test(publishableKey) || /service[_-]?role|secret|database/i.test(publishableKey)) {
-    throw new Error("????????????sb_publishable_????Publishable key????????????");
+    throw new Error("接続キーが未入力です（sb_publishable_ で始まるキーを入力してください）");
   }
-  if (!/^sb_publishable_[A-Za-z0-9._-]{20,}$/.test(publishableKey)) throw new Error("Publishable key??????????");
+  if (!/^sb_publishable_[A-Za-z0-9._-]{20,}$/.test(publishableKey)) throw new Error("接続キーの形式が正しくありません");
   return { projectUrl, publishableKey };
 }
 
@@ -133,11 +133,11 @@ async function readLocalConfig() {
   try {
     const response = await fetch("./config/cloud.local.json", { cache: "no-store", credentials: "same-origin" });
     if (response.status === 404) return null;
-    if (!response.ok) throw new Error(`???????????????HTTP ${response.status}??`);
+    if (!response.ok) throw new Error(`設定の取得に失敗しました（詳細: ${response.status}）`);
     return validateConfig(await response.json());
   } catch (error) {
-    if (error instanceof SyntaxError) throw new Error("config/cloud.local.json????JSON????????");
-    if (error?.message?.includes("??????")) throw error;
+    if (error instanceof SyntaxError) throw new Error("config/cloud.local.json の内容が正しくありません");
+    if (error?.message?.includes("送信が中断されました")) throw error;
     return null;
   }
 }
@@ -152,7 +152,7 @@ function networkStatus(navigatorLike = navigator) {
 }
 
 function networkLabel(value) {
-  return ({ wifi: "Wi-Fi", mobile: "??????", unknown: "????", offline: "?????" })[value] || "????";
+  return ({ wifi: "Wi-Fi", mobile: "モバイル通信", unknown: "不明", offline: "オフライン" })[value] || "不明";
 }
 
 function formatBytes(value) {
@@ -169,7 +169,7 @@ function message(text, error = false) {
 
 function dataUrlToBlob(dataUrl) {
   const match = /^data:image\/jpeg;base64,([A-Za-z0-9+/=\s]+)$/.exec(String(dataUrl || ""));
-  if (!match) throw new Error("???JPEG????????????");
+  if (!match) throw new Error("写真データが正しくありません");
   const binary = atob(match[1].replace(/\s/g, ""));
   const bytes = new Uint8Array(binary.length);
   for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
@@ -186,12 +186,12 @@ async function hashBlob(blob) {
 
 async function decodeJpeg(blob) {
   const header = new Uint8Array(await blob.slice(0, 3).arrayBuffer());
-  if (header.length !== 3 || header[0] !== 0xff || header[1] !== 0xd8 || header[2] !== 0xff) throw new Error("JPEG????????????????");
+  if (header.length !== 3 || header[0] !== 0xff || header[1] !== 0xd8 || header[2] !== 0xff) throw new Error("写真データが正しくありません");
   const source = typeof createImageBitmap === "function" ? await createImageBitmap(blob) : await new Promise((resolve, reject) => {
     const url = URL.createObjectURL(blob);
     const image = new Image();
     image.onload = () => { URL.revokeObjectURL(url); resolve(image); };
-    image.onerror = () => { URL.revokeObjectURL(url); reject(new Error("JPEG??????????????")); };
+    image.onerror = () => { URL.revokeObjectURL(url); reject(new Error("写真データを読み込めませんでした")); };
     image.src = url;
   });
   return source;
@@ -199,19 +199,19 @@ async function decodeJpeg(blob) {
 
 async function createPackage(queueItem) {
   const photo = bridge.getPhotoByUid(queueItem.photoUid);
-  if (!photo) throw new Error("??????????????????");
-  if (String(photo.koujiId || "") !== String(queueItem.koujiId || "")) throw new Error("?????????????????????");
+  if (!photo) throw new Error("写真が見つかりません");
+  if (String(photo.koujiId || "") !== String(queueItem.koujiId || "")) throw new Error("工事情報が一致しません");
   const project = bridge.getProjectById(queueItem.koujiId);
-  if (!project || project.projectUid !== queueItem.projectUid) throw new Error("?????????????????????");
+  if (!project || project.projectUid !== queueItem.projectUid) throw new Error("工事情報が一致しません");
   const blob = dataUrlToBlob(photo.dataUrl);
-  if (Number(photo.bytes) && Number(photo.bytes) !== blob.size) throw new Error("JPEG????????????????");
+  if (Number(photo.bytes) && Number(photo.bytes) !== blob.size) throw new Error("写真データが一致しません");
   const source = await decodeJpeg(blob);
   try {
     const width = source.width || source.naturalWidth;
     const height = source.height || source.naturalHeight;
-    if (Number(photo.width) !== width || Number(photo.height) !== height) throw new Error("JPEG??????????????????");
+    if (Number(photo.width) !== width || Number(photo.height) !== height) throw new Error("写真データが一致しません");
     const sha256 = await hashBlob(blob);
-    if (queueItem.sha256 && queueItem.sha256 !== sha256) throw new Error("JPEG?SHA-256??????????????");
+    if (queueItem.sha256 && queueItem.sha256 !== sha256) throw new Error("写真データが一致しません");
     const scale = Math.min(1, 480 / Math.max(width, height));
     const thumbWidth = Math.max(1, Math.round(width * scale));
     const thumbHeight = Math.max(1, Math.round(height * scale));
@@ -219,7 +219,7 @@ async function createPackage(queueItem) {
     canvas.width = thumbWidth;
     canvas.height = thumbHeight;
     canvas.getContext("2d", { alpha: false }).drawImage(source, 0, 0, thumbWidth, thumbHeight);
-    const thumbnailBlob = await new Promise((resolve, reject) => canvas.toBlob(value => value ? resolve(value) : reject(new Error("?????????????????")), "image/jpeg", 0.76));
+    const thumbnailBlob = await new Promise((resolve, reject) => canvas.toBlob(value => value ? resolve(value) : reject(new Error("サムネイルの作成に失敗しました")), "image/jpeg", 0.76));
     const thumbnailSha256 = await hashBlob(thumbnailBlob);
     const snapshot = photo.boardSnapshot || {};
     return {
@@ -256,7 +256,7 @@ async function createProvider(config) {
     const timeout = setTimeout(() => controller.abort(), 20000);
     try { return await fetch(url, { ...options, signal: controller.signal }); }
     catch (error) {
-      if (error?.name === "AbortError") throw new Error("Supabase??20??????????????????????????????");
+      if (error?.name === "AbortError") throw new Error("接続先から応答がありませんでした。通信環境を確認して、もう一度お試しください");
       throw error;
     } finally { clearTimeout(timeout); }
   }
@@ -266,7 +266,7 @@ async function createProvider(config) {
       ...options, headers: { apikey: config.publishableKey, "Content-Type": "application/json", ...(options.headers || {}) }
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw Object.assign(new Error(data.msg || data.message || `????????????HTTP ${response.status}??`), { code: String(response.status) });
+    if (!response.ok) throw Object.assign(new Error(data.msg || data.message || `認証に失敗しました。接続設定を確認してください`), { code: String(response.status) });
     return data;
   }
 
@@ -295,7 +295,7 @@ async function createProvider(config) {
     }
     const text = await response.text();
     const data = text ? (() => { try { return JSON.parse(text); } catch (_) { return text; } })() : null;
-    if (!response.ok) throw Object.assign(new Error(data?.message || data?.msg || data?.error || `Supabase??????????HTTP ${response.status}??`), { code: data?.code || String(response.status), details: data?.details });
+    if (!response.ok) throw Object.assign(new Error(data?.message || data?.msg || data?.error || `接続先との通信に失敗しました。通信環境を確認してください`), { code: data?.code || String(response.status), details: data?.details });
     return data;
   }
 
@@ -319,15 +319,15 @@ async function createProvider(config) {
       const rows = await api(query("site_members", { select: "site_id,role,device_name,sites!inner(site_code,name)", active: "eq.true", order: "last_seen_at.desc", limit: 2 }));
       if (!Array.isArray(rows) || rows.length !== 1) return null;
       const row = rows[0];
-      return { siteId: row.site_id, siteCode: row.sites?.site_code, siteName: row.sites?.name, role: row.role, deviceName: row.device_name || "????" };
+      return { siteId: row.site_id, siteCode: row.sites?.site_code, siteName: row.sites?.name, role: row.role, deviceName: row.device_name || "この端末" };
     },
     async joinSite({ siteCode, joinCode, deviceName }) {
       const data = await api("/rest/v1/rpc/join_site", { method: "POST", body: { p_site_code: siteCode, p_join_code: joinCode, p_device_name: deviceName } });
       const row = Array.isArray(data) ? data[0] : data;
       if (!row?.site_id) {
-        if (row?.error_code === "temporarily_blocked") throw new Error("????????????????????15?????????????");
-        if (row?.error_code === "membership_disabled") throw new Error("??????????????????");
-        throw new Error("??ID??????????????????");
+        if (row?.error_code === "temporarily_blocked") throw new Error("参加が一時的に制限されています。15分ほど待って再度お試しください");
+        if (row?.error_code === "membership_disabled") throw new Error("この現場への参加は無効化されています");
+        throw new Error("現場IDまたは参加コードが正しくありません");
       }
       return { siteId: row.site_id, siteCode: row.site_code, siteName: row.site_name, role: row.member_role, deviceName };
     },
@@ -342,17 +342,17 @@ async function createProvider(config) {
         }
       }
       let photoRow = oneOrNull(await api(query("photos", { select: "id,project_id,photo_uid,sha256,bytes", site_id: `eq.${siteId}`, photo_uid: `eq.${photo.photoUid}`, limit: 1 })));
-      if (photoRow && (photoRow.project_id !== projectRow.id || photoRow.sha256 !== photo.sha256 || Number(photoRow.bytes) !== photo.bytes)) throw new Error("??photoUid???????????????");
+      if (photoRow && (photoRow.project_id !== projectRow.id || photoRow.sha256 !== photo.sha256 || Number(photoRow.bytes) !== photo.bytes)) throw new Error("同じ写真が別の情報で登録されています");
       if (!photoRow) {
         const sameHash = oneOrNull(await api(query("photos", { select: "photo_uid", site_id: `eq.${siteId}`, sha256: `eq.${photo.sha256}`, limit: 1 })));
-        if (sameHash) throw new Error("??SHA-256???photoUid??????????");
+        if (sameHash) throw new Error("同じ写真がすでに登録されています");
         try {
           photoRow = await insert("photos", { site_id: siteId, project_id: projectRow.id, photo_uid: photo.photoUid, captured_at: photo.capturedAt, sha256: photo.sha256, mime_type: "image/jpeg", width: photo.width, height: photo.height, bytes: photo.bytes, metadata: photo.metadata });
         } catch (error) {
           if (error.code !== "23505") throw error;
           photoRow = oneOrNull(await api(query("photos", { select: "id,project_id,photo_uid,sha256,bytes", site_id: `eq.${siteId}`, photo_uid: `eq.${photo.photoUid}`, limit: 1 })));
         }
-        if (photoRow.project_id !== projectRow.id || photoRow.sha256 !== photo.sha256 || Number(photoRow.bytes) !== photo.bytes) throw new Error("??photoUid???????????????");
+        if (photoRow.project_id !== projectRow.id || photoRow.sha256 !== photo.sha256 || Number(photoRow.bytes) !== photo.bytes) throw new Error("同じ写真が別の情報で登録されています");
       }
       const originalPath = `${siteId}/photos/${photo.photoUid}.jpg`;
       const thumbnailPath = `${siteId}/thumbnails/${photo.photoUid}.jpg`;
@@ -360,7 +360,7 @@ async function createProvider(config) {
       if (existing?.status === "complete") {
         const same = existing.object_path === originalPath && existing.sha256 === photo.sha256 && Number(existing.bytes) === photo.bytes
           && existing.thumbnail_object_path === thumbnailPath && existing.thumbnail_sha256 === thumbnail.sha256 && Number(existing.thumbnail_bytes) === thumbnail.bytes;
-        if (!same) throw new Error("?????????????????????????");
+        if (!same) throw new Error("登録内容が一致しません");
       } else {
         await api(`/storage/v1/object/site-photos/${originalPath}`, { method: "POST", body: originalBlob, raw: true, headers: { "Content-Type": "image/jpeg", "x-upsert": "true", "cache-control": "max-age=31536000" } });
         await api(`/storage/v1/object/site-photos/${thumbnailPath}`, { method: "POST", body: thumbnail.blob, raw: true, headers: { "Content-Type": "image/jpeg", "x-upsert": "true", "cache-control": "max-age=31536000" } });
@@ -372,7 +372,7 @@ async function createProvider(config) {
         }, "photo_id");
       }
       const stored = oneOrNull(await api(query("photo_objects", { select: "status,sha256,bytes,thumbnail_sha256,thumbnail_bytes,upload_completed_at", photo_id: `eq.${photoRow.id}`, limit: 1 })));
-      if (stored.status !== "complete" || stored.sha256 !== photo.sha256 || Number(stored.bytes) !== photo.bytes || stored.thumbnail_sha256 !== thumbnail.sha256 || Number(stored.thumbnail_bytes) !== thumbnail.bytes || !stored.upload_completed_at) throw new Error("Supabase??????????????");
+      if (stored.status !== "complete" || stored.sha256 !== photo.sha256 || Number(stored.bytes) !== photo.bytes || stored.thumbnail_sha256 !== thumbnail.sha256 || Number(stored.thumbnail_bytes) !== thumbnail.bytes || !stored.upload_completed_at) throw new Error("送信後の確認に失敗しました");
       try { await insert("sync_events", { event_id: eventId, site_id: siteId, entity_type: "photo", entity_id: photoRow.id, event_type: "photo_synced", device_name: deviceName, payload: { photoUid: photo.photoUid, sha256: photo.sha256 }, created_at: stored.upload_completed_at }); }
       catch (error) { if (error.code !== "23505") throw error; }
       return { storedAt: stored.upload_completed_at };
@@ -381,12 +381,12 @@ async function createProvider(config) {
 }
 
 function classifyError(error) {
-  const text = String(error?.message || error || "????????????");
+  const text = String(error?.message || error || "エラーが発生しました");
   const code = String(error?.code || "");
-  if (/jwt|session|auth|sign.?in/i.test(text) || ["401", "PGRST301"].includes(code)) return { type: "auth", message: "?????????????????????????????" };
-  if (/row.level|permission|policy|forbidden/i.test(text) || ["403", "42501"].includes(code)) return { type: "permission", message: "?????????????????????" };
-  if (/quota|insufficient storage/i.test(text) || code === "507") return { type: "quota", message: "???????????????????????" };
-  if (/fetch|network|offline|connection/i.test(text)) return { type: "network", message: "?????????????????????" };
+  if (/jwt|session|auth|sign.?in/i.test(text) || ["401", "PGRST301"].includes(code)) return { type: "auth", message: "認証の有効期限が切れました。もう一度接続してください" };
+  if (/row.level|permission|policy|forbidden/i.test(text) || ["403", "42501"].includes(code)) return { type: "permission", message: "送信する権限がありません" };
+  if (/quota|insufficient storage/i.test(text) || code === "507") return { type: "quota", message: "保存容量が不足しています" };
+  if (/fetch|network|offline|connection/i.test(text)) return { type: "network", message: "通信に失敗しました。接続を確認してください" };
   return { type: "integrity", message: text };
 }
 
@@ -396,8 +396,8 @@ async function settings() {
 }
 
 async function queuePhoto(photo, project, fixedIdentity) {
-  if (!UUID_RE.test(photo.photoUid || "")) throw new Error("???photoUid??????????");
-  if (!UUID_RE.test(project.projectUid || "")) throw new Error("???projectUid??????????");
+  if (!UUID_RE.test(photo.photoUid || "")) throw new Error("写真の識別情報が正しくありません");
+  if (!UUID_RE.test(project.projectUid || "")) throw new Error("工事の識別情報が正しくありません");
   const rows = await getQueue();
   const existing = rows.find(row => row.siteId === fixedIdentity.siteId && row.photoUid === photo.photoUid);
   if (existing) return false;
@@ -424,12 +424,12 @@ async function render() {
   const summary = summarize(rows);
   const network = networkStatus();
   const configured = Boolean(provider && identity?.siteId);
-  ui.site.textContent = identity?.siteName || identity?.siteCode || "???";
-  ui.role.textContent = identity?.role || "?";
+  ui.site.textContent = identity?.siteName || identity?.siteCode || "未接続";
+  ui.role.textContent = identity?.role || "−";
   ui.network.textContent = networkLabel(network);
-  ui.pending.textContent = `${summary.pending + summary.paused + summary.error}? / ${formatBytes(summary.bytes)}`;
-  ui.synced.textContent = `${summary.synced}?`;
-  ui.errors.textContent = `${summary.error}?`;
+  ui.pending.textContent = `${summary.pending + summary.paused + summary.error}件 / ${formatBytes(summary.bytes)}`;
+  ui.synced.textContent = `${summary.synced}件`;
+  ui.errors.textContent = `${summary.error}件`;
   ui.progress.max = Math.max(1, summary.total);
   ui.progress.value = Math.min(summary.total, summary.synced + summary.error);
   ui.now.disabled = busy || !configured || summary.pending === 0 || network === "offline" || identity?.role === "viewer";
@@ -437,7 +437,7 @@ async function render() {
   ui.resume.disabled = summary.paused === 0;
   ui.retry.disabled = summary.error === 0;
   ui.enqueue.disabled = !configured || identity?.role === "viewer" || !ui.project.value;
-  ui.badge.textContent = `??? ${summary.pending + summary.paused + summary.error}?`;
+  ui.badge.textContent = `未送信 ${summary.pending + summary.paused + summary.error}件`;
   ui.badge.classList.toggle("show", configured || summary.total > 0);
 }
 
@@ -445,17 +445,17 @@ async function processQueue({ manual = false } = {}) {
   if (busy || paused || !provider || !identity?.siteId || identity.role === "viewer") return;
   const currentSettings = await settings();
   const network = networkStatus();
-  if (network === "offline") return message("??????????????????", true);
+  if (network === "offline") return message("オフラインのため送信できません", true);
   if (!manual) {
     if (currentSettings.mode === "manual") return;
-    if (currentSettings.mode === "wifi_only" && network !== "wifi") return message(`${networkLabel(network)}???????????????`);
+    if (currentSettings.mode === "wifi_only" && network !== "wifi") return message(`${networkLabel(network)}のため送信を保留しました`);
     if (currentSettings.mode === "any_network" && !currentSettings.anyNetworkConfirmed) return;
   }
   const rows = (await getQueue()).filter(row => row.siteId === identity.siteId && row.status === "pending");
   if (!rows.length) return render();
   if (manual && ["mobile", "unknown"].includes(network)) {
     const total = rows.reduce((sum, row) => sum + Number(row.bytes || 0), 0);
-    if (!confirm(`${rows.length}???${formatBytes(total)}?${networkLabel(network)}???????????????\n????????????????????????????`)) return;
+    if (!confirm(`未送信の写真${rows.length}件（${formatBytes(total)}）を${networkLabel(network)}で送信します。\nよろしいですか？`)) return;
   }
   busy = true;
   await render();
@@ -464,7 +464,7 @@ async function processQueue({ manual = false } = {}) {
       const item = rows[index];
       if (item.siteId !== identity.siteId) continue;
       await updateQueueItem(item.queueId, { status: "uploading", attempts: Number(item.attempts || 0) + 1, lastError: "" });
-      message(`?????? ${index + 1}/${rows.length}?`);
+      message(`送信中 ${index + 1}/${rows.length}件`);
       try {
         const pkg = await createPackage(item);
         await updateQueueItem(item.queueId, { sha256: pkg.photo.sha256, bytes: pkg.photo.bytes });
@@ -479,7 +479,7 @@ async function processQueue({ manual = false } = {}) {
       }
       await render();
     }
-    if (!paused && !(await getQueue()).some(row => row.siteId === identity.siteId && row.status === "pending")) message("????????????????????????????");
+    if (!paused && !(await getQueue()).some(row => row.siteId === identity.siteId && row.status === "pending")) message("未送信の写真をすべて送信しました");
   } finally {
     busy = false;
     await render();
@@ -497,7 +497,7 @@ async function connect(config, quiet = false) {
   }
   await setSetting(IDENTITY_KEY, identity);
   localStorage.setItem(MODE_KEY, "cloud");
-  if (!quiet) message(identity.siteId ? `${identity.siteName || identity.siteCode}?????????` : "??????????????????????????");
+  if (!quiet) message(identity.siteId ? `${identity.siteName || identity.siteCode}に接続しました` : "現場に接続していません");
   await render();
   if (identity.siteId) processQueue();
 }
@@ -514,7 +514,7 @@ async function enqueueSavedPhoto(photoUid) {
 
 async function populateProjects() {
   const projects = bridge.getProjects().filter(project => UUID_RE.test(project.projectUid || ""));
-  ui.project.replaceChildren(new Option("?????", ""), ...projects.map(project => new Option(project.name, project.id)));
+  ui.project.replaceChildren(new Option("工事を選ぶ", ""), ...projects.map(project => new Option(project.name, project.id)));
 }
 
 ui.saveConfig.addEventListener("click", async () => {
@@ -529,32 +529,32 @@ ui.saveConfig.addEventListener("click", async () => {
 ui.localMode.addEventListener("click", async () => {
   provider = null;
   localStorage.setItem(MODE_KEY, "local");
-  message("??????????????????????");
+  message("現場IDと参加コードを入力してください");
   await render();
 });
 
 ui.join.addEventListener("click", async () => {
-  if (!provider) return message("????????????????", true);
+  if (!provider) return message("先に接続先を保存してください", true);
   try {
-    const joined = await provider.joinSite({ siteCode: ui.siteCode.value.trim(), joinCode: ui.joinCode.value, deviceName: ui.deviceName.value.trim() || "????" });
+    const joined = await provider.joinSite({ siteCode: ui.siteCode.value.trim(), joinCode: ui.joinCode.value, deviceName: ui.deviceName.value.trim() || "この端末" });
     identity = { ...identity, ...joined };
     await setSetting(IDENTITY_KEY, identity);
     ui.joinCode.value = "";
-    message(`${identity.siteName || identity.siteCode}??????????: ${identity.role}`);
+    message(`${identity.siteName || identity.siteCode}に参加しました（権限: ${identity.role}）`);
     await render();
-  } catch (error) { message(error.message || "??????????????", true); }
+  } catch (error) { message(error.message || "参加できませんでした", true); }
 });
 
 ui.mode.addEventListener("change", async () => {
   const previous = await settings();
   if (ui.mode.value === "any_network" && !previous.anyNetworkConfirmed) {
-    if (!confirm("???????????????????????????????????????????????")) {
+    if (!confirm("この端末だけで使う設定に切り替えます。現場との共有は解除され、送信待ちの写真は送信されません。よろしいですか？")) {
       ui.mode.value = previous.mode;
       return;
     }
   }
   await setSetting(SETTINGS_KEY, { mode: ui.mode.value, anyNetworkConfirmed: ui.mode.value === "any_network" });
-  message(`??????${ui.mode.options[ui.mode.selectedIndex].textContent}?????????`);
+  message(`送信タイミングを「${ui.mode.options[ui.mode.selectedIndex].textContent}」に変更しました`);
   processQueue();
 });
 ui.project.addEventListener("change", render);
@@ -565,11 +565,11 @@ ui.enqueue.addEventListener("click", async () => {
   if (!project) return;
   const photos = bridge.getPhotos().filter(photo => String(photo.koujiId || "") === String(project.id));
   const total = photos.reduce((sum, photo) => sum + Number(photo.bytes || 0), 0);
-  if (!photos.length) return message("?????????????????????");
-  if (!confirm(`${project.name}???${photos.length}???${formatBytes(total)}?????????????????????????????`)) return;
+  if (!photos.length) return message("追加できる写真がありませんでした");
+  if (!confirm(`「${project.name}」の写真${photos.length}件（${formatBytes(total)}）を送信対象に追加します。よろしいですか？`)) return;
   let added = 0;
   for (const photo of photos) if (await queuePhoto(photo, project, structuredClone(identity))) added += 1;
-  message(`${added}???????????????????????????????????`);
+  message(`${added}件を送信対象に追加しました`);
   await render();
   processQueue();
 });
@@ -579,14 +579,14 @@ ui.pause.addEventListener("click", async () => {
   paused = true;
   const rows = await getQueue();
   await Promise.all(rows.filter(row => row.siteId === identity?.siteId && row.status === "pending").map(row => updateQueueItem(row.queueId, { status: "paused" })));
-  message("??????????????????1???????????????");
+  message("送信対象に追加しました。「今すぐ送信」で1件ずつ送信できます");
   await render();
 });
 ui.resume.addEventListener("click", async () => {
   paused = false;
   const rows = await getQueue();
   await Promise.all(rows.filter(row => row.siteId === identity?.siteId && row.status === "paused").map(row => updateQueueItem(row.queueId, { status: "pending" })));
-  message("????????????");
+  message("送信を一時停止しました");
   await render();
   processQueue();
 });
@@ -615,14 +615,14 @@ async function init() {
   const config = localConfig || readConfig();
   if (localConfig) {
     ui.projectUrl.value = localConfig.projectUrl;
-    message("git???????????????????????????");
+    message("保存された接続先を読み込めませんでした");
   }
   if (config && localStorage.getItem(MODE_KEY) === "cloud") {
-    message("Supabase????????????????");
+    message("接続先に接続できませんでした");
     await connect(config, true);
-    message(identity?.siteId ? `${identity.siteName || identity.siteCode}?????????` : "??????????????????????????");
+    message(identity?.siteId ? `${identity.siteName || identity.siteCode}に接続しました` : "現場に接続していません");
   }
-  else message("??????????????????????");
+  else message("この端末だけで使う設定になっています");
 }
 
-init().catch(error => message(error.message || "?????????????????", true));
+init().catch(error => message(error.message || "初期化に失敗しました", true));
