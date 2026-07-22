@@ -137,7 +137,7 @@ async function readLocalConfig() {
     return validateConfig(await response.json());
   } catch (error) {
     if (error instanceof SyntaxError) throw new Error("config/cloud.local.json の内容が正しくありません");
-    if (error?.message?.includes("送信が中断されました")) throw error;
+    if (error?.message?.startsWith("設定の取得に失敗しました")) throw error;
     return null;
   }
 }
@@ -497,7 +497,9 @@ async function connect(config, quiet = false) {
   }
   await setSetting(IDENTITY_KEY, identity);
   localStorage.setItem(MODE_KEY, "cloud");
-  if (!quiet) message(identity.siteId ? `${identity.siteName || identity.siteCode}に接続しました` : "現場に接続していません");
+  if (!quiet) message(identity.siteId
+    ? `${identity.siteName || identity.siteCode}に接続しました`
+    : "接続先を確認しました。現場IDと参加コードを入力してください");
   await render();
   if (identity.siteId) processQueue();
 }
@@ -520,6 +522,7 @@ async function populateProjects() {
 ui.saveConfig.addEventListener("click", async () => {
   try {
     const config = validateConfig({ projectUrl: ui.projectUrl.value, publishableKey: ui.publishableKey.value });
+    message("接続先を確認しています…");
     localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
     await connect(config);
     ui.publishableKey.value = "";
@@ -529,7 +532,7 @@ ui.saveConfig.addEventListener("click", async () => {
 ui.localMode.addEventListener("click", async () => {
   provider = null;
   localStorage.setItem(MODE_KEY, "local");
-  message("現場IDと参加コードを入力してください");
+  message("この端末だけで使う設定に切り替えました。送信待ちの写真は送信されません");
   await render();
 });
 
@@ -548,7 +551,7 @@ ui.join.addEventListener("click", async () => {
 ui.mode.addEventListener("change", async () => {
   const previous = await settings();
   if (ui.mode.value === "any_network" && !previous.anyNetworkConfirmed) {
-    if (!confirm("この端末だけで使う設定に切り替えます。現場との共有は解除され、送信待ちの写真は送信されません。よろしいですか？")) {
+    if (!confirm("モバイル通信を含むすべての回線で写真を自動送信します。通信量が発生する場合があります。よろしいですか？")) {
       ui.mode.value = previous.mode;
       return;
     }
@@ -579,20 +582,21 @@ ui.pause.addEventListener("click", async () => {
   paused = true;
   const rows = await getQueue();
   await Promise.all(rows.filter(row => row.siteId === identity?.siteId && row.status === "pending").map(row => updateQueueItem(row.queueId, { status: "paused" })));
-  message("送信対象に追加しました。「今すぐ送信」で1件ずつ送信できます");
+  message("写真の送信を一時停止しました。未送信の写真は端末内に保持されています");
   await render();
 });
 ui.resume.addEventListener("click", async () => {
   paused = false;
   const rows = await getQueue();
   await Promise.all(rows.filter(row => row.siteId === identity?.siteId && row.status === "paused").map(row => updateQueueItem(row.queueId, { status: "pending" })));
-  message("送信を一時停止しました");
+  message("写真の送信を再開しました。現在の通信設定に従って送信します");
   await render();
   processQueue();
 });
 ui.retry.addEventListener("click", async () => {
   const rows = await getQueue();
   await Promise.all(rows.filter(row => row.siteId === identity?.siteId && row.status === "error").map(row => updateQueueItem(row.queueId, { status: "pending", errorType: "", lastError: "" })));
+  message("失敗した写真を送信待ちへ戻し、再送を開始しました");
   await render();
   processQueue({ manual: true });
 });
@@ -615,12 +619,14 @@ async function init() {
   const config = localConfig || readConfig();
   if (localConfig) {
     ui.projectUrl.value = localConfig.projectUrl;
-    message("保存された接続先を読み込めませんでした");
+    message("ローカル設定ファイルから接続先を読み込みました");
   }
   if (config && localStorage.getItem(MODE_KEY) === "cloud") {
-    message("接続先に接続できませんでした");
+    message("接続先を確認しています…");
     await connect(config, true);
-    message(identity?.siteId ? `${identity.siteName || identity.siteCode}に接続しました` : "現場に接続していません");
+    message(identity?.siteId
+      ? `${identity.siteName || identity.siteCode}に接続しました`
+      : "接続先を確認しました。現場IDと参加コードを入力してください");
   }
   else message("この端末だけで使う設定になっています");
 }

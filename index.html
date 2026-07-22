@@ -451,21 +451,21 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
           <div id="aoalbStatus" role="status" aria-live="polite"></div>
         </div>
       </div>
-      <div class="m-section-title">クラウド同期<//div>
+      <div class="m-section-title">クラウド同期</div>
       <div class="setting-group" id="cloudSyncPanel">
         <div class="cloud-sync-panel">
           <div class="setting-sub">撮影した写真を現場の共有先へ送信します。設定しない場合はこの端末内だけに保存されます。</div>
           <div class="cloud-sync-field"><label for="cloudProjectUrl">Supabase Project URL</label><input id="cloudProjectUrl" type="url" autocomplete="off" inputmode="url"></div>
           <div class="cloud-sync-field"><label for="cloudPublishableKey">Publishable key</label><input id="cloudPublishableKey" type="password" autocomplete="off"></div>
           <div class="cloud-sync-actions"><button id="cloudSaveConfig" type="button">接続先を保存</button><button id="cloudLocalMode" type="button">この端末だけで使う</button></div>
-          <div class="cloud-sync-field"><label for="cloudSiteCode">現場ID</label><input id="cloudSiteCode" maxlength="64" autocomplete="off"></div>
-          <div class="cloud-sync-field"><label for="cloudJoinCode">参加コード</label><input id="cloudJoinCode" type="password" maxlength="128" autocomplete="one-time-code"></div>
+          <div class="cloud-sync-field"><label for="cloudSiteCode">現場ID</label><input id="cloudSiteCode" maxlength="40" autocomplete="off"></div>
+          <div class="cloud-sync-field"><label for="cloudJoinCode">参加コード</label><input id="cloudJoinCode" type="password" maxlength="64" autocomplete="one-time-code"></div>
           <div class="cloud-sync-field"><label for="cloudDeviceName">端末の名前</label><input id="cloudDeviceName" maxlength="80" value="この端末"></div>
           <div class="cloud-sync-actions"><button id="cloudJoin" class="primary" type="button">現場に参加</button></div>
           <div class="cloud-sync-grid">
             <div class="cloud-sync-stat">現場<b id="cloudSite">未接続</b></div><div class="cloud-sync-stat">権限<b id="cloudRole">−</b></div>
-            <div class="cloud-sync-stat">通信状態<b id="cloudNetwork">確認中</b></div><div class="cloud-sync-stat">未送信<b id="cloudPending">0? / 0 bytes</b></div>
-            <div class="cloud-sync-stat">送信済み<b id="cloudSynced">0?</b></div><div class="cloud-sync-stat">エラー<b id="cloudErrors">0?</b></div>
+            <div class="cloud-sync-stat">通信状態<b id="cloudNetwork">確認中</b></div><div class="cloud-sync-stat">未送信<b id="cloudPending">0件 / 0 bytes</b></div>
+            <div class="cloud-sync-stat">送信済み<b id="cloudSynced">0件</b></div><div class="cloud-sync-stat">エラー<b id="cloudErrors">0件</b></div>
           </div>
           <div class="cloud-sync-field"><label for="cloudSyncMode">送信のタイミング</label><select id="cloudSyncMode"><option value="wifi_only">Wi-Fi接続時だけ送信</option><option value="any_network">どの回線でも送信</option><option value="manual">手動で送信</option></select></div>
           <div class="cloud-sync-field"><label for="cloudProject">送信する工事を選ぶ</label><select id="cloudProject"></select></div>
