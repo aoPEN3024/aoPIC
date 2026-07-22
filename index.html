@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://utvfrmgnelfvynxglvse.supabase.co wss://utvfrmgnelfvynxglvse.supabase.co; media-src 'self' blob:; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="aoPIC">
@@ -460,7 +461,7 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
           <div class="setting-sub">撮影した写真を現場の共有先へ送信します。設定しない場合はこの端末内だけに保存されます。</div>
           <div class="cloud-sync-field"><label for="cloudProjectUrl">Supabase Project URL</label><input id="cloudProjectUrl" type="url" autocomplete="off" inputmode="url"></div>
           <div class="cloud-sync-field"><label for="cloudPublishableKey">Publishable key</label><input id="cloudPublishableKey" type="password" autocomplete="off"></div>
-          <div class="cloud-sync-actions"><button id="cloudSaveConfig" type="button">接続先を保存</button><button id="cloudLocalMode" type="button">この端末だけで使う</button></div>
+          <div class="cloud-sync-actions"><button id="cloudSaveConfig" type="button">現場共有を開始</button><button id="cloudLocalMode" type="button">この端末だけで使う</button></div>
           <fieldset class="cloud-sync-section">
             <legend>新しい共有現場を作成</legend>
             <p class="cloud-sync-help">参加コードは、この現場へ別端末を参加させるためのコードです。現場作成コードは、青山塗装の管理者だけが新規現場の作成時に使う会社共通コードです。</p>
