@@ -1,0 +1,4 @@
+config/cloud.local.json
+work/
+test-data/
+*.log

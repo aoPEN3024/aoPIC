@@ -86,6 +86,10 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 
 #countBadge{position:absolute;top:calc(14px + var(--safe-t));left:calc(14px + var(--safe-l));z-index:9;
   background:rgba(46,125,94,.92);color:#fff;border-radius:20px;padding:4px 11px;font-size:12px;font-weight:700}
+#cloudQueueBadge{position:absolute;top:calc(50px + var(--safe-t));left:calc(14px + var(--safe-l));z-index:9;
+  border:1px solid rgba(255,255,255,.55);background:rgba(24,85,160,.92);color:#fff;border-radius:20px;
+  padding:5px 11px;font-size:11px;font-weight:700;cursor:pointer;display:none}
+#cloudQueueBadge.show{display:block}
 #flashMsg{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:13;
   background:rgba(255,255,255,.92);color:#000;padding:8px 16px;border-radius:8px;font-weight:700;
   font-size:13px;opacity:0;pointer-events:none;transition:opacity .3s;text-align:center;max-width:80%}
@@ -224,6 +228,24 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 #aoalbStatus{display:none;margin-top:9px;padding:9px 10px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);font-size:11px;line-height:1.5;white-space:pre-wrap}
 #aoalbStatus.show{display:block}
 #aoalbStatus.err{color:var(--danger);border-color:rgba(217,83,79,.45);background:rgba(217,83,79,.1)}
+.cloud-sync-panel{padding:14px 16px}
+.cloud-sync-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0}
+.cloud-sync-stat{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px}
+.cloud-sync-stat b{display:block;font-size:15px;margin-top:3px}
+.cloud-sync-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.cloud-sync-actions button{flex:1 1 130px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);font-family:var(--font);font-weight:600}
+.cloud-sync-actions button.primary{background:var(--accent2);border-color:var(--accent2);color:#fff}
+.cloud-sync-actions button:disabled{opacity:.5;cursor:not-allowed}
+.cloud-sync-message{margin-top:10px;font-size:11px;line-height:1.5;white-space:pre-wrap}
+.cloud-sync-message.error{color:var(--danger)}
+.cloud-sync-field{margin-top:8px}
+.cloud-sync-field label{display:block;font-size:11px;color:var(--text2);margin-bottom:4px}
+.cloud-sync-field input,.cloud-sync-field select{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px;font-family:var(--font)}
+.cloud-sync-progress{width:100%;margin-top:8px}
+.cloud-sync-section{min-width:0;margin:14px 0 0;padding:12px;border:1px solid var(--border);border-radius:10px}
+.cloud-sync-section legend{padding:0 6px;color:var(--accent2);font-size:13px;font-weight:700}
+.cloud-sync-help{margin:4px 0 8px;color:var(--text2);font-size:11px;line-height:1.55}
+@media(max-width:420px){.cloud-sync-grid{grid-template-columns:1fr}}
 #clearAllBtn{width:100%;padding:14px;background:rgba(217,83,79,.1);color:var(--danger);border:1px solid rgba(217,83,79,.3);border-radius:var(--radius);font-size:14px;font-weight:600;cursor:pointer;margin-top:8px}
 
 /* ── BOARD EDITOR (ボトムシート) ── */
@@ -327,6 +349,7 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
       <div class="bd-foot"><span class="bd-lbl">施工者</span><span class="bd-contractor" id="bv-contractor">―</span></div>
     </div>
     <div id="countBadge">0枚</div>
+    <button id="cloudQueueBadge" type="button" aria-label="未送信の写真">未送信 0件</button>
     <div id="flashMsg"></div>
     <button id="boardToggleBtn" aria-label="黒板表示切替">
       <svg width="22" height="20" viewBox="0 0 22 20" xmlns="http://www.w3.org/2000/svg">
@@ -429,6 +452,45 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
           <select class="bed-input" id="aoalbProject"><option value="">（工事を選択）</option></select>
           <button id="aoalbExport">📦 aoALB用ZIPを作成</button>
           <div id="aoalbStatus" role="status" aria-live="polite"></div>
+        </div>
+      </div>
+      <div class="m-section-title">クラウド同期</div>
+      <div class="setting-group" id="cloudSyncPanel">
+        <div class="cloud-sync-panel">
+          <div class="setting-sub">撮影した写真を現場の共有先へ送信します。設定しない場合はこの端末内だけに保存されます。</div>
+          <div class="cloud-sync-field"><label for="cloudProjectUrl">Supabase Project URL</label><input id="cloudProjectUrl" type="url" autocomplete="off" inputmode="url"></div>
+          <div class="cloud-sync-field"><label for="cloudPublishableKey">Publishable key</label><input id="cloudPublishableKey" type="password" autocomplete="off"></div>
+          <div class="cloud-sync-actions"><button id="cloudSaveConfig" type="button">接続先を保存</button><button id="cloudLocalMode" type="button">この端末だけで使う</button></div>
+          <fieldset class="cloud-sync-section">
+            <legend>新しい共有現場を作成</legend>
+            <p class="cloud-sync-help">参加コードは、この現場へ別端末を参加させるためのコードです。現場作成コードは、青山塗装の管理者だけが新規現場の作成時に使う会社共通コードです。</p>
+            <div class="cloud-sync-field"><label for="cloudCreateSiteName">現場名</label><input id="cloudCreateSiteName" maxlength="160" autocomplete="off"></div>
+            <div class="cloud-sync-field"><label for="cloudCreateSiteCode">現場ID</label><input id="cloudCreateSiteCode" maxlength="40" autocomplete="off" autocapitalize="characters"></div>
+            <div class="cloud-sync-field"><label for="cloudCreateJoinCode">参加コード（8～64文字）</label><input id="cloudCreateJoinCode" type="password" minlength="8" maxlength="64" autocomplete="new-password"></div>
+            <div class="cloud-sync-field"><label for="cloudCreateJoinCodeConfirm">参加コードの確認</label><input id="cloudCreateJoinCodeConfirm" type="password" minlength="8" maxlength="64" autocomplete="new-password"></div>
+            <div class="cloud-sync-field"><label for="cloudCreateDeviceName">端末の名前</label><input id="cloudCreateDeviceName" maxlength="80" value="この端末"></div>
+            <div class="cloud-sync-field"><label for="cloudCreationCode">現場作成コード</label><input id="cloudCreationCode" type="password" minlength="16" maxlength="64" autocomplete="new-password"></div>
+            <div class="cloud-sync-actions"><button id="cloudCreateSite" class="primary" type="button">新しい現場を作成</button></div>
+          </fieldset>
+          <fieldset class="cloud-sync-section">
+            <legend>既存の共有現場へ参加</legend>
+            <p class="cloud-sync-help">現場の管理者から案内された現場IDと参加コードを入力します。通常はeditor権限で参加します。</p>
+            <div class="cloud-sync-field"><label for="cloudSiteCode">現場ID</label><input id="cloudSiteCode" maxlength="40" autocomplete="off" autocapitalize="characters"></div>
+            <div class="cloud-sync-field"><label for="cloudJoinCode">参加コード</label><input id="cloudJoinCode" type="password" minlength="8" maxlength="64" autocomplete="one-time-code"></div>
+            <div class="cloud-sync-field"><label for="cloudDeviceName">端末の名前</label><input id="cloudDeviceName" maxlength="80" value="この端末"></div>
+            <div class="cloud-sync-actions"><button id="cloudJoin" class="primary" type="button">現場に参加</button></div>
+          </fieldset>
+          <div class="cloud-sync-grid">
+            <div class="cloud-sync-stat">現場<b id="cloudSite">未接続</b></div><div class="cloud-sync-stat">権限<b id="cloudRole">−</b></div>
+            <div class="cloud-sync-stat">通信状態<b id="cloudNetwork">確認中</b></div><div class="cloud-sync-stat">未送信<b id="cloudPending">0件 / 0 bytes</b></div>
+            <div class="cloud-sync-stat">送信済み<b id="cloudSynced">0件</b></div><div class="cloud-sync-stat">エラー<b id="cloudErrors">0件</b></div>
+          </div>
+          <div class="cloud-sync-field"><label for="cloudSyncMode">送信のタイミング</label><select id="cloudSyncMode"><option value="wifi_only">Wi-Fi接続時だけ送信</option><option value="any_network">どの回線でも送信</option><option value="manual">手動で送信</option></select></div>
+          <div class="cloud-sync-field"><label for="cloudProject">送信する工事を選ぶ</label><select id="cloudProject"></select></div>
+          <div class="cloud-sync-actions"><button id="cloudEnqueueExisting" type="button">既存の写真を送信対象に追加</button></div>
+          <progress class="cloud-sync-progress" id="cloudProgress" value="0" max="1"></progress>
+          <div class="cloud-sync-actions"><button id="cloudSyncNow" class="primary" type="button">今すぐ送信</button><button id="cloudPause" type="button">一時停止</button><button id="cloudResume" type="button">再開</button><button id="cloudRetry" type="button">失敗分を再送信</button></div>
+          <div id="cloudSyncMessage" class="cloud-sync-message" role="status" aria-live="polite">未接続です</div>
         </div>
       </div>
       <button id="clearAllBtn">⚠️ 全写真を削除</button>
@@ -1110,6 +1172,7 @@ async function shoot(){
     boardSnapshot:makeBoardSnapshot(boardData)};
   photo.ledger=generateLedger(photo);
   await dbAdd(photo);photos=await dbGetAll();updateCount();
+  window.dispatchEvent(new CustomEvent('aoPIC:photo-saved',{detail:{photoUid:photo.photoUid}}));
   showFlash(`撮影 ✓ ${outW}×${outH} / ${Math.round(bytes/1024)}KB`);
 }
 function roundRect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.arcTo(x+w,y,x+w,y+r,r);ctx.lineTo(x+w,y+h-r);ctx.arcTo(x+w,y+h,x+w-r,y+h,r);ctx.lineTo(x+r,y+h);ctx.arcTo(x,y+h,x,y+h-r,r);ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);ctx.closePath()}
@@ -1767,6 +1830,17 @@ function renderStats(){
   const cr=document.getElementById('statCamRes');if(cr&&video.videoWidth)cr.textContent=`${video.videoWidth}×${video.videoHeight}`;
 }
 
+let resolveAoPICReady;
+const aoPICReady=new Promise(resolve=>{resolveAoPICReady=resolve});
+window.aoPICCloudBridge={
+  ready:aoPICReady,
+  getProjects:()=>structuredClone(masters),
+  getPhotos:()=>structuredClone(photos),
+  getPhotoByUid:uid=>structuredClone(photos.find(photo=>photo.photoUid===uid)||null),
+  getProjectById:id=>structuredClone(masters.find(project=>String(project.id)===String(id))||null),
+  showSettings:()=>showScreen('settingsScreen')
+};
+
 // ════════ INIT ════════
 async function init(){
   await openDB();loadMasters();photos=await dbGetAll();await migratePhotoRecords();populateKoujiSelect();
@@ -1776,8 +1850,10 @@ async function init(){
   document.getElementById('loading').style.display='none';document.getElementById('app').style.display='flex';
   syncSketchCtrl();loadSketch(boardData.koujiId);
   requestAnimationFrame(()=>{updateBoardDisplay();updateGuide();reflowOverlays();renderSketchPreview();});
+  resolveAoPICReady();
 }
 init().catch(e=>{document.getElementById('loading').innerHTML='<p style="color:#d9534f">起動エラー: '+e.message+'</p>'});
 </script>
+<script type="module" src="js/cloud-sync.js"></script>
 </body>
 </html>
