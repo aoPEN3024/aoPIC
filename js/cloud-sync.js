@@ -499,14 +499,14 @@ async function processQueue({ manual = false } = {}) {
   if (busy || paused || !provider || !identity?.siteId || identity.role === "viewer") return;
   const currentSettings = await settings();
   const network = networkStatus();
+  const rows = (await getQueue()).filter(row => row.siteId === identity.siteId && row.status === "pending");
+  if (!rows.length) return render();
   if (network === "offline") return message("オフラインのため送信できません", true);
   if (!manual) {
     if (currentSettings.mode === "manual") return;
     if (currentSettings.mode === "wifi_only" && network !== "wifi") return message(`${networkLabel(network)}のため送信を保留しました`);
     if (currentSettings.mode === "any_network" && !currentSettings.anyNetworkConfirmed) return;
   }
-  const rows = (await getQueue()).filter(row => row.siteId === identity.siteId && row.status === "pending");
-  if (!rows.length) return render();
   if (manual && ["mobile", "unknown"].includes(network)) {
     const total = rows.reduce((sum, row) => sum + Number(row.bytes || 0), 0);
     if (!confirm(`未送信の写真${rows.length}件（${formatBytes(total)}）を${networkLabel(network)}で送信します。\nよろしいですか？`)) return;
