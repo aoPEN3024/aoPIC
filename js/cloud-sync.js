@@ -2,6 +2,9 @@ const DB_NAME = "aoPICCloudDB";
 const DB_VERSION = 1;
 const CONFIG_KEY = "aoPIC:cloudConfig";
 const MODE_KEY = "aoPIC:sharingMode";
+const AUTH_STORAGE_KEY = "aoPIC:supabase-auth-rest";
+const LOCAL_CONFIG_PATH = "./config/cloud.local.json";
+const PUBLIC_CONFIG_PATH = "./config/cloud.public.v1.json";
 const SETTINGS_KEY = "photoSyncSettings";
 const IDENTITY_KEY = "cloudIdentity";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -13,6 +16,7 @@ if (!bridge) throw new Error("aoPICのデータ連携が初期化されていま
 let cloudDb;
 let provider;
 let identity;
+let deploymentConfig;
 let busy = false;
 let paused = false;
 let siteActionBusy = false;
@@ -154,16 +158,31 @@ function readConfig() {
   }
 }
 
-async function readLocalConfig() {
-  if (!["localhost", "127.0.0.1"].includes(location.hostname)) return null;
+function hasStoredAuthSession() {
   try {
-    const response = await fetch("./config/cloud.local.json", { cache: "no-store", credentials: "same-origin" });
+    const stored = JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || "null");
+    return Boolean(stored?.access_token && stored?.refresh_token);
+  } catch (_) {
+    return false;
+  }
+}
+
+async function readDeploymentConfig() {
+  const isLocal = ["localhost", "127.0.0.1"].includes(location.hostname);
+  const configPath = isLocal ? LOCAL_CONFIG_PATH : PUBLIC_CONFIG_PATH;
+  try {
+    const response = await fetch(configPath, { cache: "no-store", credentials: "same-origin" });
     if (response.status === 404) return null;
     if (!response.ok) throw new Error(`設定の取得に失敗しました（詳細: ${response.status}）`);
-    return validateConfig(await response.json());
+    const parsed = await response.json();
+    if (!isLocal && (parsed?.schemaVersion !== 1 || parsed?.cloudSharingEnabled !== true)) {
+      throw new Error("公開用クラウド設定が無効、または未対応の形式です");
+    }
+    return validateConfig(parsed);
   } catch (error) {
-    if (error instanceof SyntaxError) throw new Error("config/cloud.local.json の内容が正しくありません");
+    if (error instanceof SyntaxError) throw new Error(`${configPath} の内容が正しくありません`);
     if (error?.message?.startsWith("設定の取得に失敗しました")) throw error;
+    if (!isLocal) throw error;
     return null;
   }
 }
@@ -273,7 +292,7 @@ async function createPackage(queueItem) {
 }
 
 async function createProvider(config) {
-  const authKey = "aoPIC:supabase-auth-rest";
+  const authKey = AUTH_STORAGE_KEY;
   let session;
   try { session = JSON.parse(localStorage.getItem(authKey) || "null"); } catch (_) { session = null; }
 
@@ -575,7 +594,11 @@ async function populateProjects() {
 
 ui.saveConfig.addEventListener("click", async () => {
   try {
-    const config = validateConfig({ projectUrl: ui.projectUrl.value, publishableKey: ui.publishableKey.value });
+    const saved = readConfig();
+    const config = validateConfig({
+      projectUrl: ui.projectUrl.value || deploymentConfig?.projectUrl || saved?.projectUrl,
+      publishableKey: ui.publishableKey.value || deploymentConfig?.publishableKey || saved?.publishableKey
+    });
     message("接続先を確認しています…");
     localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
     await connect(config);
@@ -709,20 +732,26 @@ async function init() {
   ui.mode.value = currentSettings.mode;
   await populateProjects();
   await render();
-  const localConfig = await readLocalConfig();
-  const config = localConfig || readConfig();
-  if (localConfig) {
-    ui.projectUrl.value = localConfig.projectUrl;
-    message("ローカル設定ファイルから接続先を読み込みました");
+  deploymentConfig = await readDeploymentConfig();
+  const config = deploymentConfig || readConfig();
+  if (deploymentConfig) {
+    ui.projectUrl.value = deploymentConfig.projectUrl;
+    message(["localhost", "127.0.0.1"].includes(location.hostname)
+      ? "ローカル設定ファイルから接続先を読み込みました"
+      : "現場共有を利用できます。開始する場合は「現場共有を開始」を押してください");
   }
-  if (config && localStorage.getItem(MODE_KEY) === "cloud") {
+  if (config && localStorage.getItem(MODE_KEY) === "cloud" && hasStoredAuthSession()) {
     message("接続先を確認しています…");
     await connect(config, true);
     message(identity?.siteId
       ? `${identity.siteName || identity.siteCode}に接続しました`
       : "接続先を確認しました。新しい現場を作成するか、既存の現場へ参加してください");
+  } else {
+    if (localStorage.getItem(MODE_KEY) === "cloud") localStorage.setItem(MODE_KEY, "local");
+    message(config
+      ? "この端末だけで使う設定です。現場共有を使う場合は「現場共有を開始」を押してください"
+      : "この端末だけで使う設定になっています");
   }
-  else message("この端末だけで使う設定になっています");
 }
 
 init().catch(error => message(error.message || "初期化に失敗しました", true));
