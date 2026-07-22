@@ -15,12 +15,17 @@ let provider;
 let identity;
 let busy = false;
 let paused = false;
+let siteActionBusy = false;
 
 const byId = id => document.getElementById(id);
 const ui = {
   projectUrl: byId("cloudProjectUrl"), publishableKey: byId("cloudPublishableKey"), saveConfig: byId("cloudSaveConfig"),
   localMode: byId("cloudLocalMode"), siteCode: byId("cloudSiteCode"), joinCode: byId("cloudJoinCode"),
   deviceName: byId("cloudDeviceName"), join: byId("cloudJoin"), site: byId("cloudSite"), role: byId("cloudRole"),
+  createSiteName: byId("cloudCreateSiteName"), createSiteCode: byId("cloudCreateSiteCode"),
+  createJoinCode: byId("cloudCreateJoinCode"), createJoinCodeConfirm: byId("cloudCreateJoinCodeConfirm"),
+  createDeviceName: byId("cloudCreateDeviceName"), creationCode: byId("cloudCreationCode"),
+  createSite: byId("cloudCreateSite"),
   network: byId("cloudNetwork"), pending: byId("cloudPending"), synced: byId("cloudSynced"), errors: byId("cloudErrors"),
   mode: byId("cloudSyncMode"), project: byId("cloudProject"), enqueue: byId("cloudEnqueueExisting"),
   progress: byId("cloudProgress"), now: byId("cloudSyncNow"), pause: byId("cloudPause"), resume: byId("cloudResume"),
@@ -116,6 +121,27 @@ function validateConfig(input) {
   }
   if (!/^sb_publishable_[A-Za-z0-9._-]{20,}$/.test(publishableKey)) throw new Error("接続キーの形式が正しくありません");
   return { projectUrl, publishableKey };
+}
+
+function validateSiteCreation(input) {
+  const siteName = String(input.siteName || "").trim();
+  const siteCode = String(input.siteCode || "").trim().toUpperCase();
+  const joinCode = String(input.joinCode || "");
+  const joinCodeConfirm = String(input.joinCodeConfirm || "");
+  const deviceName = String(input.deviceName || "").trim();
+  const creationCode = String(input.creationCode || "");
+  const control = /[\u0000-\u001f\u007f]/;
+  if (!siteName || siteName.length > 160 || control.test(siteName)) throw new Error("現場名は1～160文字で入力してください");
+  if (!/^[A-Z0-9][A-Z0-9_-]{2,39}$/.test(siteCode)) throw new Error("現場IDは英大文字・数字・_・-を使い、3～40文字で入力してください");
+  if (joinCode.length < 8 || joinCode.length > 64 || new TextEncoder().encode(joinCode).length > 72 || /[\s\u0000-\u001f\u007f]/.test(joinCode)) {
+    throw new Error("参加コードは空白を含まない8～64文字で入力してください");
+  }
+  if (joinCode !== joinCodeConfirm) throw new Error("参加コードと確認入力が一致しません");
+  if (!deviceName || deviceName.length > 80 || control.test(deviceName)) throw new Error("端末の名前は1～80文字で入力してください");
+  if (creationCode.length < 16 || creationCode.length > 64 || new TextEncoder().encode(creationCode).length > 72 || /[\s\u0000-\u001f\u007f]/.test(creationCode)) {
+    throw new Error("現場作成コードは空白を含まない16～64文字で入力してください");
+  }
+  return { siteName, siteCode, joinCode, deviceName, creationCode };
 }
 
 function readConfig() {
@@ -331,6 +357,32 @@ async function createProvider(config) {
       }
       return { siteId: row.site_id, siteCode: row.site_code, siteName: row.site_name, role: row.member_role, deviceName };
     },
+    async createSite({ siteName, siteCode, joinCode, deviceName, creationCode }) {
+      let data;
+      try {
+        data = await api("/rest/v1/rpc/create_site", {
+          method: "POST",
+          body: {
+            p_site_name: siteName,
+            p_site_code: siteCode,
+            p_site_join_code: joinCode,
+            p_device_name: deviceName,
+            p_site_creation_code: creationCode
+          }
+        });
+      } catch (_) {
+        throw new Error("現場を作成できませんでした。接続状態を確認して、もう一度お試しください");
+      }
+      const row = Array.isArray(data) ? data[0] : data;
+      if (!row?.site_id) {
+        if (row?.error_code === "temporarily_blocked") throw new Error("現場作成が一時的に制限されています。15分ほど待って再度お試しください");
+        if (row?.error_code === "site_code_exists") throw new Error("その現場IDはすでに使用されています。別の現場IDを入力してください");
+        if (row?.error_code === "creation_unavailable") throw new Error("現場作成機能がまだ準備されていません。管理者へ確認してください");
+        if (row?.error_code === "auth_required") throw new Error("認証を確認できませんでした。接続先を保存し直してください");
+        throw new Error("入力内容または現場作成コードを確認してください");
+      }
+      return { siteId: row.site_id, siteCode: row.site_code, siteName: row.site_name, role: row.member_role, deviceName };
+    },
     async uploadPhotoPackage(pkg) {
       const { siteId, project, photo, originalBlob, thumbnail, eventId, deviceName } = pkg;
       let projectRow = oneOrNull(await api(query("projects", { select: "id,project_uid", site_id: `eq.${siteId}`, project_uid: `eq.${project.projectUid}`, limit: 1 })));
@@ -437,6 +489,8 @@ async function render() {
   ui.resume.disabled = summary.paused === 0;
   ui.retry.disabled = summary.error === 0;
   ui.enqueue.disabled = !configured || identity?.role === "viewer" || !ui.project.value;
+  ui.createSite.disabled = siteActionBusy || !provider;
+  ui.join.disabled = siteActionBusy || !provider;
   ui.badge.textContent = `未送信 ${summary.pending + summary.paused + summary.error}件`;
   ui.badge.classList.toggle("show", configured || summary.total > 0);
 }
@@ -499,7 +553,7 @@ async function connect(config, quiet = false) {
   localStorage.setItem(MODE_KEY, "cloud");
   if (!quiet) message(identity.siteId
     ? `${identity.siteName || identity.siteCode}に接続しました`
-    : "接続先を確認しました。現場IDと参加コードを入力してください");
+    : "接続先を確認しました。新しい現場を作成するか、既存の現場へ参加してください");
   await render();
   if (identity.siteId) processQueue();
 }
@@ -536,16 +590,56 @@ ui.localMode.addEventListener("click", async () => {
   await render();
 });
 
+ui.createSite.addEventListener("click", async () => {
+  if (!provider) return message("先に接続先を保存してください", true);
+  if (siteActionBusy) return;
+  siteActionBusy = true;
+  try {
+    await render();
+    const input = validateSiteCreation({
+      siteName: ui.createSiteName.value,
+      siteCode: ui.createSiteCode.value,
+      joinCode: ui.createJoinCode.value,
+      joinCodeConfirm: ui.createJoinCodeConfirm.value,
+      deviceName: ui.createDeviceName.value,
+      creationCode: ui.creationCode.value
+    });
+    message("新しい共有現場を作成しています…");
+    const created = await provider.createSite(input);
+    identity = { userId: identity?.userId, ...created };
+    await setSetting(IDENTITY_KEY, identity);
+    ui.createSiteCode.value = created.siteCode;
+    message(`${identity.siteName || identity.siteCode}を作成しました（権限: admin）。既存写真は自動送信されません`);
+    await render();
+  } catch (error) {
+    message(error.message || "現場を作成できませんでした", true);
+  } finally {
+    ui.createJoinCode.value = "";
+    ui.createJoinCodeConfirm.value = "";
+    ui.creationCode.value = "";
+    siteActionBusy = false;
+    await render();
+  }
+});
+
 ui.join.addEventListener("click", async () => {
   if (!provider) return message("先に接続先を保存してください", true);
+  if (siteActionBusy) return;
+  siteActionBusy = true;
   try {
+    await render();
     const joined = await provider.joinSite({ siteCode: ui.siteCode.value.trim(), joinCode: ui.joinCode.value, deviceName: ui.deviceName.value.trim() || "この端末" });
     identity = { ...identity, ...joined };
     await setSetting(IDENTITY_KEY, identity);
-    ui.joinCode.value = "";
     message(`${identity.siteName || identity.siteCode}に参加しました（権限: ${identity.role}）`);
     await render();
-  } catch (error) { message(error.message || "参加できませんでした", true); }
+  } catch (error) {
+    message(error.message || "参加できませんでした", true);
+  } finally {
+    ui.joinCode.value = "";
+    siteActionBusy = false;
+    await render();
+  }
 });
 
 ui.mode.addEventListener("change", async () => {
@@ -626,7 +720,7 @@ async function init() {
     await connect(config, true);
     message(identity?.siteId
       ? `${identity.siteName || identity.siteCode}に接続しました`
-      : "接続先を確認しました。現場IDと参加コードを入力してください");
+      : "接続先を確認しました。新しい現場を作成するか、既存の現場へ参加してください");
   }
   else message("この端末だけで使う設定になっています");
 }

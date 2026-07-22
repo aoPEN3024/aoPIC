@@ -242,6 +242,9 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .cloud-sync-field label{display:block;font-size:11px;color:var(--text2);margin-bottom:4px}
 .cloud-sync-field input,.cloud-sync-field select{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px;font-family:var(--font)}
 .cloud-sync-progress{width:100%;margin-top:8px}
+.cloud-sync-section{min-width:0;margin:14px 0 0;padding:12px;border:1px solid var(--border);border-radius:10px}
+.cloud-sync-section legend{padding:0 6px;color:var(--accent2);font-size:13px;font-weight:700}
+.cloud-sync-help{margin:4px 0 8px;color:var(--text2);font-size:11px;line-height:1.55}
 @media(max-width:420px){.cloud-sync-grid{grid-template-columns:1fr}}
 #clearAllBtn{width:100%;padding:14px;background:rgba(217,83,79,.1);color:var(--danger);border:1px solid rgba(217,83,79,.3);border-radius:var(--radius);font-size:14px;font-weight:600;cursor:pointer;margin-top:8px}
 
@@ -458,10 +461,25 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
           <div class="cloud-sync-field"><label for="cloudProjectUrl">Supabase Project URL</label><input id="cloudProjectUrl" type="url" autocomplete="off" inputmode="url"></div>
           <div class="cloud-sync-field"><label for="cloudPublishableKey">Publishable key</label><input id="cloudPublishableKey" type="password" autocomplete="off"></div>
           <div class="cloud-sync-actions"><button id="cloudSaveConfig" type="button">接続先を保存</button><button id="cloudLocalMode" type="button">この端末だけで使う</button></div>
-          <div class="cloud-sync-field"><label for="cloudSiteCode">現場ID</label><input id="cloudSiteCode" maxlength="40" autocomplete="off"></div>
-          <div class="cloud-sync-field"><label for="cloudJoinCode">参加コード</label><input id="cloudJoinCode" type="password" maxlength="64" autocomplete="one-time-code"></div>
-          <div class="cloud-sync-field"><label for="cloudDeviceName">端末の名前</label><input id="cloudDeviceName" maxlength="80" value="この端末"></div>
-          <div class="cloud-sync-actions"><button id="cloudJoin" class="primary" type="button">現場に参加</button></div>
+          <fieldset class="cloud-sync-section">
+            <legend>新しい共有現場を作成</legend>
+            <p class="cloud-sync-help">参加コードは、この現場へ別端末を参加させるためのコードです。現場作成コードは、青山塗装の管理者だけが新規現場の作成時に使う会社共通コードです。</p>
+            <div class="cloud-sync-field"><label for="cloudCreateSiteName">現場名</label><input id="cloudCreateSiteName" maxlength="160" autocomplete="off"></div>
+            <div class="cloud-sync-field"><label for="cloudCreateSiteCode">現場ID</label><input id="cloudCreateSiteCode" maxlength="40" autocomplete="off" autocapitalize="characters"></div>
+            <div class="cloud-sync-field"><label for="cloudCreateJoinCode">参加コード（8～64文字）</label><input id="cloudCreateJoinCode" type="password" minlength="8" maxlength="64" autocomplete="new-password"></div>
+            <div class="cloud-sync-field"><label for="cloudCreateJoinCodeConfirm">参加コードの確認</label><input id="cloudCreateJoinCodeConfirm" type="password" minlength="8" maxlength="64" autocomplete="new-password"></div>
+            <div class="cloud-sync-field"><label for="cloudCreateDeviceName">端末の名前</label><input id="cloudCreateDeviceName" maxlength="80" value="この端末"></div>
+            <div class="cloud-sync-field"><label for="cloudCreationCode">現場作成コード</label><input id="cloudCreationCode" type="password" minlength="16" maxlength="64" autocomplete="new-password"></div>
+            <div class="cloud-sync-actions"><button id="cloudCreateSite" class="primary" type="button">新しい現場を作成</button></div>
+          </fieldset>
+          <fieldset class="cloud-sync-section">
+            <legend>既存の共有現場へ参加</legend>
+            <p class="cloud-sync-help">現場の管理者から案内された現場IDと参加コードを入力します。通常はeditor権限で参加します。</p>
+            <div class="cloud-sync-field"><label for="cloudSiteCode">現場ID</label><input id="cloudSiteCode" maxlength="40" autocomplete="off" autocapitalize="characters"></div>
+            <div class="cloud-sync-field"><label for="cloudJoinCode">参加コード</label><input id="cloudJoinCode" type="password" minlength="8" maxlength="64" autocomplete="one-time-code"></div>
+            <div class="cloud-sync-field"><label for="cloudDeviceName">端末の名前</label><input id="cloudDeviceName" maxlength="80" value="この端末"></div>
+            <div class="cloud-sync-actions"><button id="cloudJoin" class="primary" type="button">現場に参加</button></div>
+          </fieldset>
           <div class="cloud-sync-grid">
             <div class="cloud-sync-stat">現場<b id="cloudSite">未接続</b></div><div class="cloud-sync-stat">権限<b id="cloudRole">−</b></div>
             <div class="cloud-sync-stat">通信状態<b id="cloudNetwork">確認中</b></div><div class="cloud-sync-stat">未送信<b id="cloudPending">0件 / 0 bytes</b></div>
