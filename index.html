@@ -91,6 +91,15 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
   border:1px solid rgba(255,255,255,.55);background:rgba(24,85,160,.92);color:#fff;border-radius:20px;
   padding:5px 11px;font-size:11px;font-weight:700;cursor:pointer;display:none}
 #cloudQueueBadge.show{display:block}
+.field-bottom-nav{display:none}
+.tech-only{display:none!important}
+.details-box{margin-top:12px;border:1px solid var(--border);border-radius:10px;background:var(--surface)}
+.details-box>summary{cursor:pointer;padding:12px 14px;font-weight:700;color:var(--text2)}
+.details-box[open]>summary{border-bottom:1px solid var(--border)}
+.field-actions{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.field-actions button{flex:1 1 130px;padding:10px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);font-weight:700}
+.share-heading{font-size:18px;font-weight:800;margin:8px 0 4px}
+.share-status{padding:10px 12px;border-radius:9px;background:var(--surface2);font-size:12px;line-height:1.55}
 #flashMsg{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:13;
   background:rgba(255,255,255,.92);color:#000;padding:8px 16px;border-radius:8px;font-weight:700;
   font-size:13px;opacity:0;pointer-events:none;transition:opacity .3s;text-align:center;max-width:80%}
@@ -247,6 +256,15 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .cloud-sync-section legend{padding:0 6px;color:var(--accent2);font-size:13px;font-weight:700}
 .cloud-sync-help{margin:4px 0 8px;color:var(--text2);font-size:11px;line-height:1.55}
 @media(max-width:420px){.cloud-sync-grid{grid-template-columns:1fr}}
+@media(max-width:768px){
+  .screen-body,#photoGrid{padding-bottom:calc(86px + env(safe-area-inset-bottom))}
+  #shotBtn{bottom:calc(82px + env(safe-area-inset-bottom))}
+  .field-bottom-nav{position:fixed;display:grid;grid-template-columns:repeat(3,1fr);left:0;right:0;bottom:0;z-index:80;
+    padding:7px max(8px,env(safe-area-inset-right)) calc(7px + env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left));
+    background:rgba(255,255,255,.97);border-top:1px solid var(--border);box-shadow:0 -4px 18px rgba(0,0,0,.12)}
+  .field-bottom-nav button{min-height:48px;border:0;background:transparent;color:var(--text2);border-radius:10px;font:700 12px var(--font)}
+  .field-bottom-nav button.active{background:#eaf2fc;color:var(--accent2)}
+}
 #clearAllBtn{width:100%;padding:14px;background:rgba(217,83,79,.1);color:var(--danger);border:1px solid rgba(217,83,79,.3);border-radius:var(--radius);font-size:14px;font-weight:600;cursor:pointer;margin-top:8px}
 
 /* ── BOARD EDITOR (ボトムシート) ── */
@@ -375,9 +393,15 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
     <div class="back-bar">
       <button class="back-btn" data-go="camScreen">←</button>
       <span class="bb-title">写真</span>
-      <button id="dlAllBtn">📦 ZIP共有</button>
+      <button id="dlAllBtn">書き出す</button>
     </div>
     <div id="filterBar">
+      <div class="field-actions" aria-label="写真の表示">
+        <button id="photoToday" type="button">今日の写真</button>
+        <button id="photoAll" type="button">すべて</button>
+        <button id="photoPending" type="button">送信待ち</button>
+        <button id="photoErrors" type="button">送信できなかった写真</button>
+      </div>
       <div id="filterModeTabs">
         <button class="fmode active" data-mode="koushu">工種で絞る</button>
         <button class="fmode" data-mode="date">日付で絞る</button>
@@ -399,10 +423,11 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
   <div class="screen" id="masterScreen">
     <div class="back-bar">
       <button class="back-btn" data-go="camScreen">←</button>
-      <span class="bb-title">工種設定</span>
+      <span class="bb-title">工事</span>
     </div>
     <div class="screen-body">
-      <div class="m-sub">工事ごとに 工種→種別→細別・測点・摘要 を登録します</div>
+      <div class="m-sub">撮影する工事と、工種・測点などを選びます。</div>
+      <div class="field-actions"><button type="button" id="openSharingSettings">工事を共有</button><button type="button" data-go="settingsScreen">設定</button></div>
       <div id="masterList"></div>
       <div class="add-kouji">
         <input id="newKoujiName" placeholder="新しい工事名" type="text">
@@ -427,7 +452,7 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
         <div class="setting-row"><div><div class="setting-label">保存写真数</div></div><div class="stat-val" id="statCount">0</div></div>
         <div class="setting-row"><div><div class="setting-label">使用容量（目安）</div></div><div class="stat-val" id="statSize">0 MB</div></div>
       </div>
-      <div class="m-section-title">工事設定のバックアップ・共有</div>
+      <div class="m-section-title">書き出す</div>
       <div class="setting-group">
         <div class="setting-row" style="display:block">
           <div class="setting-sub" style="margin:0 0 10px">工事・工種・施工者などの設定を書き出して保存したり、他の端末へ渡せます。写真は含まれません。</div>
@@ -455,43 +480,60 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
           <div id="aoalbStatus" role="status" aria-live="polite"></div>
         </div>
       </div>
-      <div class="m-section-title">クラウド同期</div>
+      <div class="m-section-title">工事を共有</div>
       <div class="setting-group" id="cloudSyncPanel">
         <div class="cloud-sync-panel">
-          <div class="setting-sub">撮影した写真を現場の共有先へ送信します。設定しない場合はこの端末内だけに保存されます。</div>
-          <div class="cloud-sync-field"><label for="cloudProjectUrl">Supabase Project URL</label><input id="cloudProjectUrl" type="url" autocomplete="off" inputmode="url"></div>
-          <div class="cloud-sync-field"><label for="cloudPublishableKey">Publishable key</label><input id="cloudPublishableKey" type="password" autocomplete="off"></div>
-          <div class="cloud-sync-actions"><button id="cloudSaveConfig" type="button">現場共有を開始</button><button id="cloudLocalMode" type="button">この端末だけで使う</button></div>
+          <div class="share-heading">写真を現場の端末と共有</div>
+          <div class="setting-sub">撮影した写真は先にこの端末へ保存されます。共有できないときも撮影と書き出しは使えます。</div>
+          <div class="tech-only"><div class="cloud-sync-field"><label for="cloudProjectUrl">接続先</label><input id="cloudProjectUrl" type="url" autocomplete="off" inputmode="url"></div>
+          <div class="cloud-sync-field"><label for="cloudPublishableKey">接続キー</label><input id="cloudPublishableKey" type="password" autocomplete="off"></div></div>
+          <div class="cloud-sync-actions"><button id="cloudSaveConfig" type="button">工事の共有を開始</button><button id="cloudLocalMode" type="button">この端末だけで使う</button></div>
           <fieldset class="cloud-sync-section">
-            <legend>新しい共有現場を作成</legend>
-            <p class="cloud-sync-help">参加コードは、この現場へ別端末を参加させるためのコードです。現場作成コードは、青山塗装の管理者だけが新規現場の作成時に使う会社共通コードです。</p>
-            <div class="cloud-sync-field"><label for="cloudCreateSiteName">現場名</label><input id="cloudCreateSiteName" maxlength="160" autocomplete="off"></div>
-            <div class="cloud-sync-field"><label for="cloudCreateSiteCode">現場ID</label><input id="cloudCreateSiteCode" maxlength="40" autocomplete="off" autocapitalize="characters"></div>
+            <legend>新しい共有工事を作る</legend>
+            <p class="cloud-sync-help">参加コードは、他の端末をこの工事へ参加させるコードです。会社の管理コードは、社員が新しい共有工事を作るためのコードです。</p>
+            <div class="cloud-sync-field"><label for="cloudCreateSiteName">工事名</label><input id="cloudCreateSiteName" maxlength="160" autocomplete="off"></div>
+            <div class="cloud-sync-field"><label for="cloudCreateSiteCode">工事ID</label><input id="cloudCreateSiteCode" maxlength="40" autocomplete="off" autocapitalize="characters"></div>
             <div class="cloud-sync-field"><label for="cloudCreateJoinCode">参加コード（8～64文字）</label><input id="cloudCreateJoinCode" type="password" minlength="8" maxlength="64" autocomplete="new-password"></div>
             <div class="cloud-sync-field"><label for="cloudCreateJoinCodeConfirm">参加コードの確認</label><input id="cloudCreateJoinCodeConfirm" type="password" minlength="8" maxlength="64" autocomplete="new-password"></div>
-            <div class="cloud-sync-field"><label for="cloudCreateDeviceName">端末の名前</label><input id="cloudCreateDeviceName" maxlength="80" value="この端末"></div>
-            <div class="cloud-sync-field"><label for="cloudCreationCode">現場作成コード</label><input id="cloudCreationCode" type="password" minlength="16" maxlength="64" autocomplete="new-password"></div>
-            <div class="cloud-sync-actions"><button id="cloudCreateSite" class="primary" type="button">新しい現場を作成</button></div>
+            <details class="details-box"><summary>端末名を変更</summary><div class="cloud-sync-field"><label for="cloudCreateDeviceName">端末名</label><input id="cloudCreateDeviceName" maxlength="80" value="この端末"></div></details>
+            <div class="cloud-sync-field"><label for="cloudCreationCode">会社の管理コード</label><input id="cloudCreationCode" type="password" minlength="16" maxlength="64" autocomplete="new-password"></div>
+            <div class="cloud-sync-actions"><button id="cloudCreateSite" class="primary" type="button">共有工事を作る</button></div>
           </fieldset>
           <fieldset class="cloud-sync-section">
-            <legend>既存の共有現場へ参加</legend>
-            <p class="cloud-sync-help">現場の管理者から案内された現場IDと参加コードを入力します。通常はeditor権限で参加します。</p>
-            <div class="cloud-sync-field"><label for="cloudSiteCode">現場ID</label><input id="cloudSiteCode" maxlength="40" autocomplete="off" autocapitalize="characters"></div>
+            <legend>工事に参加する</legend>
+            <p class="cloud-sync-help">管理者から案内された工事IDと参加コードを入力します。</p>
+            <div class="cloud-sync-field"><label for="cloudSiteCode">工事ID</label><input id="cloudSiteCode" maxlength="40" autocomplete="off" autocapitalize="characters"></div>
             <div class="cloud-sync-field"><label for="cloudJoinCode">参加コード</label><input id="cloudJoinCode" type="password" minlength="8" maxlength="64" autocomplete="one-time-code"></div>
-            <div class="cloud-sync-field"><label for="cloudDeviceName">端末の名前</label><input id="cloudDeviceName" maxlength="80" value="この端末"></div>
-            <div class="cloud-sync-actions"><button id="cloudJoin" class="primary" type="button">現場に参加</button></div>
+            <details class="details-box"><summary>端末名を変更</summary><div class="cloud-sync-field"><label for="cloudDeviceName">端末名</label><input id="cloudDeviceName" maxlength="80" value="この端末"></div></details>
+            <div class="cloud-sync-actions"><button id="cloudJoin" class="primary" type="button">工事に参加</button></div>
           </fieldset>
           <div class="cloud-sync-grid">
-            <div class="cloud-sync-stat">現場<b id="cloudSite">未接続</b></div><div class="cloud-sync-stat">権限<b id="cloudRole">−</b></div>
-            <div class="cloud-sync-stat">通信状態<b id="cloudNetwork">確認中</b></div><div class="cloud-sync-stat">未送信<b id="cloudPending">0件 / 0 bytes</b></div>
-            <div class="cloud-sync-stat">送信済み<b id="cloudSynced">0件</b></div><div class="cloud-sync-stat">エラー<b id="cloudErrors">0件</b></div>
+            <div class="cloud-sync-stat">共有工事<b id="cloudSite">未接続</b></div><div class="cloud-sync-stat">権限<b id="cloudRole">−</b></div>
+            <div class="cloud-sync-stat tech-only">通信状態<b id="cloudNetwork">確認中</b></div><div class="cloud-sync-stat">送信待ち<b id="cloudPending">0件 / 0 bytes</b></div>
+            <div class="cloud-sync-stat">送信済み<b id="cloudSynced">0件</b></div><div class="cloud-sync-stat">送信できませんでした<b id="cloudErrors">0件</b></div>
           </div>
-          <div class="cloud-sync-field"><label for="cloudSyncMode">送信のタイミング</label><select id="cloudSyncMode"><option value="wifi_only">Wi-Fi接続時だけ送信</option><option value="any_network">どの回線でも送信</option><option value="manual">手動で送信</option></select></div>
+          <fieldset class="cloud-sync-section" id="cloudAdminPanel" hidden>
+            <legend>共有工事の管理</legend>
+            <p class="cloud-sync-help">管理者だけが工事名・工事ID・参加コード・共有状態を変更できます。</p>
+            <div class="cloud-sync-field"><label for="cloudAdminSiteName">工事名</label><input id="cloudAdminSiteName" maxlength="160"></div>
+            <div class="cloud-sync-field"><label for="cloudAdminSiteCode">工事ID</label><input id="cloudAdminSiteCode" maxlength="40" autocapitalize="characters"></div>
+            <div class="cloud-sync-actions"><button id="cloudAdminSave" type="button">工事情報を保存</button></div>
+            <details class="details-box"><summary>参加コードを変更</summary>
+              <p class="cloud-sync-help">変更後は旧コードが無効になります。すでに参加済みの端末はそのまま利用できます。</p>
+              <div class="cloud-sync-field"><label for="cloudAdminJoinCode">新しい参加コード</label><input id="cloudAdminJoinCode" type="password" minlength="8" maxlength="64" autocomplete="new-password"></div>
+              <div class="cloud-sync-field"><label for="cloudAdminJoinCodeConfirm">確認入力</label><input id="cloudAdminJoinCodeConfirm" type="password" minlength="8" maxlength="64" autocomplete="new-password"></div>
+              <div class="cloud-sync-actions"><button id="cloudAdminRotateCode" type="button">参加コードを変更</button></div>
+            </details>
+            <div class="cloud-sync-actions"><button id="cloudAdminClose" type="button">共有を終了</button><button id="cloudAdminReopen" type="button">共有を再開</button><button id="cloudAdminTrash" type="button">ごみ箱へ移動</button></div>
+            <p class="cloud-sync-help">終了しても写真と台帳は残ります。ごみ箱へ移動しても写真本体は削除されません。</p>
+          </fieldset>
+          <div class="cloud-sync-field"><label for="cloudSyncMode">写真の送信</label><select id="cloudSyncMode"><option value="wifi_only">Wi-Fi時のみ（推奨）</option><option value="any_network">すべての回線</option><option value="manual">手動のみ</option></select></div>
           <div class="cloud-sync-field"><label for="cloudProject">送信する工事を選ぶ</label><select id="cloudProject"></select></div>
           <div class="cloud-sync-actions"><button id="cloudEnqueueExisting" type="button">既存の写真を送信対象に追加</button></div>
           <progress class="cloud-sync-progress" id="cloudProgress" value="0" max="1"></progress>
-          <div class="cloud-sync-actions"><button id="cloudSyncNow" class="primary" type="button">今すぐ送信</button><button id="cloudPause" type="button">一時停止</button><button id="cloudResume" type="button">再開</button><button id="cloudRetry" type="button">失敗分を再送信</button></div>
+          <div class="cloud-sync-actions"><button id="cloudSyncNow" class="primary" type="button">今すぐ送る</button><button id="cloudPause" type="button">停止</button><button id="cloudResume" type="button">再開</button><button id="cloudRetry" type="button">送れなかった写真をもう一度送る</button></div>
           <div id="cloudSyncMessage" class="cloud-sync-message" role="status" aria-live="polite">未接続です</div>
+          <details class="details-box"><summary>詳細設定</summary><div class="share-status">接続設定：設定済み</div><p class="cloud-sync-help">接続診断、エラー履歴、既存写真の一括送信、データ容量などは必要なときだけ確認してください。</p></details>
         </div>
       </div>
       <button id="clearAllBtn">⚠️ 全写真を削除</button>
@@ -505,12 +547,18 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
 <nav id="sideMenu">
   <div class="menu-title"><span class="lg-b">a</span><span class="lg-r">o</span><span class="lg-b">PIC</span></div>
   <button class="menu-item" data-go="camScreen">📷 撮影</button>
-  <button class="menu-item" data-go="galleryScreen">🗂 写真一覧</button>
-  <button class="menu-item" data-go="masterScreen">📁 工種設定</button>
+  <button class="menu-item" data-go="galleryScreen">🗂 写真</button>
+  <button class="menu-item" data-go="masterScreen">📁 工事</button>
   <button class="menu-item" data-go="settingsScreen">⚙️ 設定</button>
   <div class="menu-div"></div>
   <button class="menu-item" id="mi-board">📋 黒板を編集</button>
   <button class="menu-item" id="mi-flip">🔄 カメラ切替</button>
+</nav>
+
+<nav class="field-bottom-nav" aria-label="基本メニュー">
+  <button type="button" data-go="camScreen">📷<br>撮影</button>
+  <button type="button" data-go="galleryScreen">🗂<br>写真</button>
+  <button type="button" data-go="masterScreen">📁<br>工事</button>
 </nav>
 
 <!-- BOARD EDITOR -->
@@ -764,6 +812,7 @@ async function migratePhotoRecords(){
 // ════════ 画面遷移 ════════
 function showScreen(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active',s.id===id));
+  document.querySelectorAll('.field-bottom-nav [data-go]').forEach(b=>b.classList.toggle('active',b.dataset.go===id));
   if(id==='galleryScreen')renderGallery();
   if(id==='settingsScreen')renderStats();
   if(id==='masterScreen')renderMasters();
@@ -778,6 +827,10 @@ menuBtn.addEventListener('click',openMenu);
 document.getElementById('boardToggleBtn').addEventListener('click',()=>setBoardVisible(!boardVisible));
 menuOverlay.addEventListener('click',closeMenu);
 document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>showScreen(b.dataset.go)));
+document.getElementById('openSharingSettings').addEventListener('click',()=>{
+  showScreen('settingsScreen');
+  requestAnimationFrame(()=>document.getElementById('cloudSyncPanel').scrollIntoView({behavior:'smooth',block:'start'}));
+});
 document.getElementById('mi-board').addEventListener('click',()=>{closeMenu();setBoardVisible(true);document.getElementById('boardEditor').classList.add('open')});
 document.getElementById('mi-flip').addEventListener('click',()=>{facingMode=facingMode==='environment'?'user':'environment';startCamera();closeMenu()});
 
@@ -1255,7 +1308,7 @@ function renderFilterBar(){
   });
   syncDateInputs();
 }
-function updateZipCount(n){document.getElementById('dlAllBtn').textContent=`📦 ZIP共有${n?` (${n})`:''}`}
+function updateZipCount(n){document.getElementById('dlAllBtn').textContent=`書き出す${n?` (${n})`:''}`}
 function renderGallery(){
   renderFilterBar();
   const grid=document.getElementById('photoGrid');
@@ -1273,6 +1326,13 @@ document.querySelectorAll('.fmode').forEach(b=>b.addEventListener('click',()=>{f
 document.getElementById('dateFrom').addEventListener('change',e=>{dateFrom=e.target.value;renderGallery()});
 document.getElementById('dateTo').addEventListener('change',e=>{dateTo=e.target.value;renderGallery()});
 document.getElementById('dateClear').addEventListener('click',()=>{dateFrom='';dateTo='';renderGallery()});
+document.getElementById('photoToday').addEventListener('click',()=>{
+  const today=new Date(),value=`${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
+  filterMode='date';dateFrom=value;dateTo=value;renderGallery();
+});
+document.getElementById('photoAll').addEventListener('click',()=>{filterMode='koushu';filterKoushu='all';dateFrom='';dateTo='';renderGallery()});
+document.getElementById('photoPending').addEventListener('click',()=>window.aoPICCloudBridge?.showSettings());
+document.getElementById('photoErrors').addEventListener('click',()=>window.aoPICCloudBridge?.showSettings());
 function fmt(d){return`${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`}
 function pad(n){return String(n).padStart(2,'0')}
 function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
@@ -1839,7 +1899,8 @@ window.aoPICCloudBridge={
   getPhotos:()=>structuredClone(photos),
   getPhotoByUid:uid=>structuredClone(photos.find(photo=>photo.photoUid===uid)||null),
   getProjectById:id=>structuredClone(masters.find(project=>String(project.id)===String(id))||null),
-  showSettings:()=>showScreen('settingsScreen')
+  showSettings:()=>showScreen('settingsScreen'),
+  showCamera:()=>showScreen('camScreen')
 };
 
 // ════════ INIT ════════

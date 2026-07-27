@@ -35,6 +35,13 @@ const ui = {
   progress: byId("cloudProgress"), now: byId("cloudSyncNow"), pause: byId("cloudPause"), resume: byId("cloudResume"),
   retry: byId("cloudRetry"), message: byId("cloudSyncMessage"), badge: byId("cloudQueueBadge")
 };
+Object.assign(ui, {
+  adminPanel: byId("cloudAdminPanel"), adminSiteName: byId("cloudAdminSiteName"),
+  adminSiteCode: byId("cloudAdminSiteCode"), adminSave: byId("cloudAdminSave"),
+  adminJoinCode: byId("cloudAdminJoinCode"), adminJoinCodeConfirm: byId("cloudAdminJoinCodeConfirm"),
+  adminRotateCode: byId("cloudAdminRotateCode"), adminClose: byId("cloudAdminClose"),
+  adminReopen: byId("cloudAdminReopen"), adminTrash: byId("cloudAdminTrash")
+});
 
 function requestResult(request) {
   return new Promise((resolve, reject) => {
@@ -197,7 +204,11 @@ function networkStatus(navigatorLike = navigator) {
 }
 
 function networkLabel(value) {
-  return ({ wifi: "Wi-Fi", mobile: "モバイル通信", unknown: "不明", offline: "オフライン" })[value] || "不明";
+  return ({ wifi: "Wi-Fi", mobile: "モバイル通信", unknown: "回線を確認できません", offline: "オフライン" })[value] || "回線を確認できません";
+}
+
+function roleLabel(value) {
+  return ({ admin: "管理者", editor: "メンバー", viewer: "閲覧のみ" })[value] || "−";
 }
 
 function formatBytes(value) {
@@ -382,10 +393,10 @@ async function createProvider(config) {
       return current.user?.id;
     },
     async restoreMembership() {
-      const rows = await api(query("site_members", { select: "site_id,role,device_name,sites!inner(site_code,name)", active: "eq.true", order: "last_seen_at.desc", limit: 2 }));
+      const rows = await api(query("site_members", { select: "site_id,role,device_name,sites!inner(site_code,name,status,revision)", active: "eq.true", order: "last_seen_at.desc", limit: 2 }));
       if (!Array.isArray(rows) || rows.length !== 1) return null;
       const row = rows[0];
-      return { siteId: row.site_id, siteCode: row.sites?.site_code, siteName: row.sites?.name, role: row.role, deviceName: row.device_name || "この端末" };
+      return { siteId: row.site_id, siteCode: row.sites?.site_code, siteName: row.sites?.name, siteStatus: row.sites?.status || "active", siteRevision: Number(row.sites?.revision || 1), role: row.role, deviceName: row.device_name || "この端末" };
     },
     async joinSite({ siteCode, joinCode, deviceName }) {
       const data = await api("/rest/v1/rpc/join_site", { method: "POST", body: { p_site_code: siteCode, p_join_code: joinCode, p_device_name: deviceName } });
@@ -422,6 +433,15 @@ async function createProvider(config) {
         throw new Error("入力内容または現場作成コードを確認してください");
       }
       return { siteId: row.site_id, siteCode: row.site_code, siteName: row.site_name, role: row.member_role, deviceName };
+    },
+    async refreshSite(siteId) {
+      const row = oneOrNull(await api(query("sites", { select: "id,site_code,name,status,revision", id: `eq.${siteId}`, limit: 1 })));
+      if (!row) throw new Error("共有工事の情報を確認できませんでした");
+      return { siteId: row.id, siteCode: row.site_code, siteName: row.name, siteStatus: row.status || "active", siteRevision: Number(row.revision || 1) };
+    },
+    async siteRpc(name, body) {
+      const result = await api(`/rest/v1/rpc/${name}`, { method: "POST", body });
+      return Array.isArray(result) ? result[0] : result;
     },
     async uploadPhotoPackage(pkg) {
       const { siteId, project, photo, originalBlob, thumbnail, eventId, deviceName } = pkg;
@@ -517,26 +537,60 @@ async function render() {
   const network = networkStatus();
   const configured = Boolean(provider && identity?.siteId);
   ui.site.textContent = identity?.siteName || identity?.siteCode || "未接続";
-  ui.role.textContent = identity?.role || "−";
+  ui.role.textContent = roleLabel(identity?.role);
   ui.network.textContent = networkLabel(network);
   ui.pending.textContent = `${summary.pending + summary.paused + summary.error}件 / ${formatBytes(summary.bytes)}`;
   ui.synced.textContent = `${summary.synced}件`;
   ui.errors.textContent = `${summary.error}件`;
   ui.progress.max = Math.max(1, summary.total);
   ui.progress.value = Math.min(summary.total, summary.synced + summary.error);
-  ui.now.disabled = busy || !configured || summary.pending === 0 || network === "offline" || identity?.role === "viewer";
+  const writable = configured && identity?.siteStatus !== "closed" && identity?.siteStatus !== "trashed";
+  ui.now.disabled = busy || !writable || summary.pending === 0 || network === "offline" || identity?.role === "viewer";
   ui.pause.disabled = summary.pending === 0;
   ui.resume.disabled = summary.paused === 0;
   ui.retry.disabled = summary.error === 0;
-  ui.enqueue.disabled = !configured || identity?.role === "viewer" || !ui.project.value;
+  ui.retry.style.display = summary.error === 0 ? "none" : "";
+  ui.enqueue.disabled = !writable || identity?.role === "viewer" || !ui.project.value;
   ui.createSite.disabled = siteActionBusy || !provider;
   ui.join.disabled = siteActionBusy || !provider;
   ui.badge.textContent = `未送信 ${summary.pending + summary.paused + summary.error}件`;
   ui.badge.classList.toggle("show", configured || summary.total > 0);
+  const admin = configured && identity?.role === "admin";
+  ui.adminPanel.hidden = !admin;
+  if (admin) {
+    if (document.activeElement !== ui.adminSiteName) ui.adminSiteName.value = identity.siteName || "";
+    if (document.activeElement !== ui.adminSiteCode) ui.adminSiteCode.value = identity.siteCode || "";
+    ui.adminClose.style.display = identity.siteStatus === "closed" ? "none" : "";
+    ui.adminReopen.style.display = identity.siteStatus === "closed" ? "" : "none";
+  }
+}
+
+async function refreshIdentitySite() {
+  if (!provider || !identity?.siteId) return;
+  identity = { ...identity, ...(await provider.refreshSite(identity.siteId)) };
+  await setSetting(IDENTITY_KEY, identity);
+  await render();
+}
+
+async function runAdminAction(label, action) {
+  if (identity?.role !== "admin" || siteActionBusy) return;
+  siteActionBusy = true;
+  try {
+    message(`${label}しています…`);
+    await action();
+    await refreshIdentitySite();
+    message(`${label}しました`);
+  } catch (error) {
+    message(/revision_conflict/i.test(error.message)
+      ? "別の端末で工事情報が更新されました。最新情報を確認して、もう一度操作してください"
+      : (error.message || `${label}できませんでした`), true);
+  } finally {
+    siteActionBusy = false;
+  }
 }
 
 async function processQueue({ manual = false } = {}) {
-  if (busy || paused || !provider || !identity?.siteId || identity.role === "viewer") return;
+  if (busy || paused || !provider || !identity?.siteId || identity.role === "viewer" || ["closed","trashed"].includes(identity.siteStatus)) return;
   const currentSettings = await settings();
   const network = networkStatus();
   const rows = (await getQueue()).filter(row => row.siteId === identity.siteId && row.status === "pending");
@@ -544,7 +598,11 @@ async function processQueue({ manual = false } = {}) {
   if (network === "offline") return message("オフラインのため送信できません", true);
   if (!manual) {
     if (currentSettings.mode === "manual") return;
-    if (currentSettings.mode === "wifi_only" && network !== "wifi") return message(`${networkLabel(network)}のため送信を保留しました`);
+    if (currentSettings.mode === "wifi_only" && network !== "wifi") {
+      return message(network === "unknown"
+        ? "Wi-Fi接続を確認できないため、写真を端末に保存しています"
+        : `${networkLabel(network)}のため写真はこの端末に保存しています`);
+    }
     if (currentSettings.mode === "any_network" && !currentSettings.anyNetworkConfirmed) return;
   }
   if (manual && ["mobile", "unknown"].includes(network)) {
@@ -614,7 +672,7 @@ async function connect(config, quiet = false) {
 }
 
 async function enqueueSavedPhoto(photoUid) {
-  if (!provider || !identity?.siteId || identity.role === "viewer") return;
+  if (!provider || !identity?.siteId || identity.role === "viewer" || ["closed","trashed"].includes(identity.siteStatus)) return;
   const photo = bridge.getPhotoByUid(photoUid);
   const project = photo ? bridge.getProjectById(photo.koujiId) : null;
   if (!photo || !project?.projectUid) return;
@@ -667,8 +725,10 @@ ui.createSite.addEventListener("click", async () => {
     const created = await provider.createSite(input);
     identity = { userId: identity?.userId, ...created };
     await setSetting(IDENTITY_KEY, identity);
+    await refreshIdentitySite();
     ui.createSiteCode.value = created.siteCode;
-    message(`${identity.siteName || identity.siteCode}を作成しました（権限: admin）。既存写真は自動送信されません`);
+    message(`${identity.siteName || identity.siteCode}を作成しました。あなたは管理者です。既存写真は自動送信されません`);
+    bridge.showCamera?.();
     await render();
   } catch (error) {
     message(error.message || "現場を作成できませんでした", true);
@@ -690,7 +750,9 @@ ui.join.addEventListener("click", async () => {
     const joined = await provider.joinSite({ siteCode: ui.siteCode.value.trim(), joinCode: ui.joinCode.value, deviceName: ui.deviceName.value.trim() || "この端末" });
     identity = { ...identity, ...joined };
     await setSetting(IDENTITY_KEY, identity);
-    message(`${identity.siteName || identity.siteCode}に参加しました（権限: ${identity.role}）`);
+    await refreshIdentitySite();
+    message(`${identity.siteName || identity.siteCode}に参加しました（${roleLabel(identity.role)}）`);
+    bridge.showCamera?.();
     await render();
   } catch (error) {
     message(error.message || "参加できませんでした", true);
@@ -753,6 +815,29 @@ ui.retry.addEventListener("click", async () => {
   await render();
   processQueue({ manual: true });
 });
+ui.adminSave.addEventListener("click", () => runAdminAction("工事情報を保存", async () => {
+  await provider.siteRpc("update_site", {
+    p_site_id: identity.siteId, p_expected_revision: identity.siteRevision,
+    p_name: ui.adminSiteName.value, p_site_code: ui.adminSiteCode.value
+  });
+}));
+ui.adminRotateCode.addEventListener("click", () => runAdminAction("参加コードを変更", async () => {
+  const code = ui.adminJoinCode.value;
+  if (!code || code !== ui.adminJoinCodeConfirm.value) throw new Error("参加コードと確認入力が一致しません");
+  await provider.siteRpc("rotate_site_join_code", { p_site_id: identity.siteId, p_new_code: code, p_grant_role: "editor" });
+  ui.adminJoinCode.value = "";
+  ui.adminJoinCodeConfirm.value = "";
+}));
+ui.adminClose.addEventListener("click", async () => {
+  const rows = await getQueue(), count = rows.filter(row => row.siteId === identity?.siteId && ["pending","paused","error"].includes(row.status)).length;
+  if (!confirm(`共有を終了すると新しい参加と写真送信が止まります。既存写真と台帳は残ります。${count ? `\n送信待ちの写真が${count}件あります。` : ""}\nよろしいですか？`)) return;
+  runAdminAction("共有を終了", () => provider.siteRpc("close_site", { p_site_id: identity.siteId, p_expected_revision: identity.siteRevision }));
+});
+ui.adminReopen.addEventListener("click", () => runAdminAction("共有を再開", () => provider.siteRpc("reopen_site", { p_site_id: identity.siteId, p_expected_revision: identity.siteRevision })));
+ui.adminTrash.addEventListener("click", () => {
+  if (prompt("ごみ箱へ移動しても写真は削除されません。確認のため工事名を入力してください。") !== identity.siteName) return;
+  runAdminAction("ごみ箱へ移動", () => provider.siteRpc("trash_site", { p_site_id: identity.siteId, p_expected_revision: identity.siteRevision }));
+});
 ui.badge.addEventListener("click", () => bridge.showSettings());
 window.addEventListener("aoPIC:photo-saved", event => enqueueSavedPhoto(event.detail?.photoUid).catch(error => message(error.message, true)));
 window.addEventListener("online", () => { render(); processQueue(); });
@@ -770,22 +855,25 @@ async function init() {
   await render();
   deploymentConfig = await readDeploymentConfig();
   const config = deploymentConfig || readConfig();
+  const deviceCandidate = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ? "現場スマートフォン" : "この端末";
+  if (!ui.createDeviceName.value || ui.createDeviceName.value === "この端末") ui.createDeviceName.value = deviceCandidate;
+  if (!ui.deviceName.value || ui.deviceName.value === "この端末") ui.deviceName.value = deviceCandidate;
   if (deploymentConfig) {
     ui.projectUrl.value = deploymentConfig.projectUrl;
     message(["localhost", "127.0.0.1"].includes(location.hostname)
       ? "ローカル設定ファイルから接続先を読み込みました"
-      : "現場共有を利用できます。開始する場合は「現場共有を開始」を押してください");
+      : "工事の共有を利用できます。開始する場合は「工事の共有を開始」を押してください");
   }
   if (config && localStorage.getItem(MODE_KEY) === "cloud" && hasStoredAuthSession()) {
     message("接続先を確認しています…");
     await connect(config, true);
     message(identity?.siteId
       ? `${identity.siteName || identity.siteCode}に接続しました`
-      : "接続先を確認しました。新しい現場を作成するか、既存の現場へ参加してください");
+      : "準備ができました。新しい共有工事を作るか、工事へ参加してください");
   } else {
     if (localStorage.getItem(MODE_KEY) === "cloud") localStorage.setItem(MODE_KEY, "local");
     message(config
-      ? "この端末だけで使う設定です。現場共有を使う場合は「現場共有を開始」を押してください"
+      ? "この端末だけで使っています。工事を共有する場合は「工事の共有を開始」を押してください"
       : "この端末だけで使う設定になっています");
   }
 }
