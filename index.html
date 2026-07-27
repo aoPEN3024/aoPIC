@@ -1163,7 +1163,9 @@ async function shoot(){
   let q=0.92,dataUrl,bytes;
   while(true){
     dataUrl=out.toDataURL('image/jpeg',q);
-    bytes=Math.round((dataUrl.length-(dataUrl.indexOf(',')+1))*3/4);
+    const encoded=dataUrl.slice(dataUrl.indexOf(',')+1).replace(/\s/g,'');
+    const padding=encoded.endsWith('==')?2:encoded.endsWith('=')?1:0;
+    bytes=Math.floor(encoded.length*3/4)-padding;
     if(bytes<=500*1024||q<=0.4)break;
     q-=0.04;
   }

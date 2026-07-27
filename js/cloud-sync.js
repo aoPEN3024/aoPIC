@@ -221,6 +221,24 @@ function dataUrlToBlob(dataUrl) {
   return new Blob([bytes], { type: "image/jpeg" });
 }
 
+function isLegacyBase64Size(photo, actualBytes) {
+  const encoded = String(photo?.dataUrl || "").slice(String(photo?.dataUrl || "").indexOf(",") + 1).replace(/\s/g, "");
+  const recordedBytes = Number(photo?.bytes);
+  const legacyBytes = Math.round(encoded.length * 3 / 4);
+  return Number.isFinite(recordedBytes)
+    && recordedBytes === legacyBytes
+    && recordedBytes >= actualBytes
+    && recordedBytes - actualBytes <= 2;
+}
+
+function syncDiagnostic(stage, photoUid, details = {}) {
+  const safeDetails = {};
+  if (UUID_RE.test(photoUid || "")) safeDetails.photo = String(photoUid).slice(0, 8);
+  if (Number.isFinite(details.bytes)) safeDetails.bytes = details.bytes;
+  if (details.code) safeDetails.code = String(details.code);
+  console.info(`[aoPIC cloud sync] ${stage}`, safeDetails);
+}
+
 function hex(buffer) {
   return Array.from(new Uint8Array(buffer), byte => byte.toString(16).padStart(2, "0")).join("");
 }
@@ -249,7 +267,10 @@ async function createPackage(queueItem) {
   const project = bridge.getProjectById(queueItem.koujiId);
   if (!project || project.projectUid !== queueItem.projectUid) throw new Error("工事情報が一致しません");
   const blob = dataUrlToBlob(photo.dataUrl);
-  if (Number(photo.bytes) && Number(photo.bytes) !== blob.size) throw new Error("写真データが一致しません");
+  if (Number(photo.bytes) && Number(photo.bytes) !== blob.size && !isLegacyBase64Size(photo, blob.size)) {
+    throw new Error("写真データが一致しません");
+  }
+  syncDiagnostic("写真データ検証成功", photo.photoUid, { bytes: blob.size });
   const source = await decodeJpeg(blob);
   try {
     const width = source.width || source.naturalWidth;
@@ -266,6 +287,7 @@ async function createPackage(queueItem) {
     canvas.getContext("2d", { alpha: false }).drawImage(source, 0, 0, thumbWidth, thumbHeight);
     const thumbnailBlob = await new Promise((resolve, reject) => canvas.toBlob(value => value ? resolve(value) : reject(new Error("サムネイルの作成に失敗しました")), "image/jpeg", 0.76));
     const thumbnailSha256 = await hashBlob(thumbnailBlob);
+    syncDiagnostic("サムネイル生成成功", photo.photoUid, { bytes: thumbnailBlob.size });
     const snapshot = photo.boardSnapshot || {};
     return {
       eventId: queueItem.eventId, siteId: queueItem.siteId, deviceName: identity.deviceName,
@@ -412,6 +434,7 @@ async function createProvider(config) {
           projectRow = oneOrNull(await api(query("projects", { select: "id,project_uid", site_id: `eq.${siteId}`, project_uid: `eq.${project.projectUid}`, limit: 1 })));
         }
       }
+      syncDiagnostic("現場所属・工事情報確認成功", photo.photoUid);
       let photoRow = oneOrNull(await api(query("photos", { select: "id,project_id,photo_uid,sha256,bytes", site_id: `eq.${siteId}`, photo_uid: `eq.${photo.photoUid}`, limit: 1 })));
       if (photoRow && (photoRow.project_id !== projectRow.id || photoRow.sha256 !== photo.sha256 || Number(photoRow.bytes) !== photo.bytes)) throw new Error("同じ写真が別の情報で登録されています");
       if (!photoRow) {
@@ -425,6 +448,7 @@ async function createProvider(config) {
         }
         if (photoRow.project_id !== projectRow.id || photoRow.sha256 !== photo.sha256 || Number(photoRow.bytes) !== photo.bytes) throw new Error("同じ写真が別の情報で登録されています");
       }
+      syncDiagnostic("写真メタデータ登録成功", photo.photoUid);
       const originalPath = `${siteId}/photos/${photo.photoUid}.jpg`;
       const thumbnailPath = `${siteId}/thumbnails/${photo.photoUid}.jpg`;
       const existing = oneOrNull(await api(query("photo_objects", { select: "status,object_path,sha256,bytes,upload_completed_at,thumbnail_object_path,thumbnail_sha256,thumbnail_bytes", photo_id: `eq.${photoRow.id}`, limit: 1 })));
@@ -433,8 +457,11 @@ async function createProvider(config) {
           && existing.thumbnail_object_path === thumbnailPath && existing.thumbnail_sha256 === thumbnail.sha256 && Number(existing.thumbnail_bytes) === thumbnail.bytes;
         if (!same) throw new Error("登録内容が一致しません");
       } else {
+        syncDiagnostic("原寸Storage送信開始", photo.photoUid, { bytes: originalBlob.size });
         await api(`/storage/v1/object/site-photos/${originalPath}`, { method: "POST", body: originalBlob, raw: true, headers: { "Content-Type": "image/jpeg", "x-upsert": "true", "cache-control": "max-age=31536000" } });
+        syncDiagnostic("原寸Storage送信成功", photo.photoUid, { bytes: originalBlob.size });
         await api(`/storage/v1/object/site-photos/${thumbnailPath}`, { method: "POST", body: thumbnail.blob, raw: true, headers: { "Content-Type": "image/jpeg", "x-upsert": "true", "cache-control": "max-age=31536000" } });
+        syncDiagnostic("サムネイルStorage送信成功", photo.photoUid, { bytes: thumbnail.bytes });
         const completedAt = new Date().toISOString();
         await insert("photo_objects", {
           photo_id: photoRow.id, site_id: siteId, bucket_id: "site-photos", object_path: originalPath, sha256: photo.sha256,
@@ -446,6 +473,7 @@ async function createProvider(config) {
       if (stored.status !== "complete" || stored.sha256 !== photo.sha256 || Number(stored.bytes) !== photo.bytes || stored.thumbnail_sha256 !== thumbnail.sha256 || Number(stored.thumbnail_bytes) !== thumbnail.bytes || !stored.upload_completed_at) throw new Error("送信後の確認に失敗しました");
       try { await insert("sync_events", { event_id: eventId, site_id: siteId, entity_type: "photo", entity_id: photoRow.id, event_type: "photo_synced", device_name: deviceName, payload: { photoUid: photo.photoUid, sha256: photo.sha256 }, created_at: stored.upload_completed_at }); }
       catch (error) { if (error.code !== "23505") throw error; }
+      syncDiagnostic("同期完了", photo.photoUid);
       return { storedAt: stored.upload_completed_at };
     }
   };
@@ -538,16 +566,22 @@ async function processQueue({ manual = false } = {}) {
       if (item.siteId !== identity.siteId) continue;
       await updateQueueItem(item.queueId, { status: "uploading", attempts: Number(item.attempts || 0) + 1, lastError: "" });
       message(`送信中 ${index + 1}/${rows.length}件`);
+      let stage = "送信準備";
       try {
         const pkg = await createPackage(item);
         await updateQueueItem(item.queueId, { sha256: pkg.photo.sha256, bytes: pkg.photo.bytes });
+        stage = "クラウド保存";
         const result = await provider.uploadPhotoPackage(pkg);
+        stage = "ローカル送信状態更新";
         await updateQueueItem(item.queueId, { status: "synced", syncedAt: result.storedAt, lastError: "", errorType: "" });
       } catch (error) {
         const classified = classifyError(error);
+        const failedStage = error.syncStage || stage;
         const retryable = ["network", "auth"].includes(classified.type);
-        await updateQueueItem(item.queueId, { status: retryable ? "pending" : "error", errorType: classified.type, lastError: classified.message });
-        message(classified.message, true);
+        console.error("[aoPIC cloud sync] 送信失敗", { stage: failedStage, photo: String(item.photoUid || "").slice(0, 8), code: String(error?.code || ""), message: String(error?.message || error) });
+        const detailedMessage = `${failedStage}: ${classified.message}`;
+        await updateQueueItem(item.queueId, { status: retryable ? "pending" : "error", errorType: classified.type, lastError: detailedMessage });
+        message(detailedMessage, true);
         if (retryable) break;
       }
       await render();
