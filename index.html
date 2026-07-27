@@ -1163,9 +1163,7 @@ async function shoot(){
   let q=0.92,dataUrl,bytes;
   while(true){
     dataUrl=out.toDataURL('image/jpeg',q);
-    const encoded=dataUrl.slice(dataUrl.indexOf(',')+1).replace(/\s/g,'');
-    const padding=encoded.endsWith('==')?2:encoded.endsWith('=')?1:0;
-    bytes=Math.floor(encoded.length*3/4)-padding;
+    bytes=decodeJpegBytes(dataUrl).byteLength;
     if(bytes<=500*1024||q<=0.4)break;
     q-=0.04;
   }
@@ -1857,6 +1855,6 @@ async function init(){
 }
 init().catch(e=>{document.getElementById('loading').innerHTML='<p style="color:#d9534f">起動エラー: '+e.message+'</p>'});
 </script>
-<script type="module" src="js/cloud-sync.js"></script>
+<script type="module" src="js/cloud-sync.js?v=20260727-bytefix1"></script>
 </body>
 </html>
