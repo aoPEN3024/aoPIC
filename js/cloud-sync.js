@@ -1,3 +1,11 @@
+import {
+  inspectPass,
+  textLength,
+  validateAdministratorPass,
+  validateCompanyPass,
+  validateProjectPass
+} from "./input-validation.js";
+
 const DB_NAME = "aoPICCloudDB";
 const DB_VERSION = 1;
 const CONFIG_KEY = "aoPIC:cloudConfig";
@@ -54,6 +62,67 @@ Object.assign(ui, {
   adminAccessCode: byId("cloudAdminAccessCode"), adminAccessCodeConfirm: byId("cloudAdminAccessCodeConfirm"),
   adminAccessSave: byId("cloudAdminAccessSave"), memberList: byId("cloudMemberList")
 });
+
+const buttonLabels = new WeakMap();
+
+function setButtonBusy(button, active, pendingLabel = "処理中…") {
+  if (!button) return;
+  if (active) {
+    if (!buttonLabels.has(button)) buttonLabels.set(button, button.textContent);
+    button.textContent = pendingLabel;
+    button.disabled = true;
+    button.setAttribute("aria-busy", "true");
+  } else {
+    if (buttonLabels.has(button)) button.textContent = buttonLabels.get(button);
+    buttonLabels.delete(button);
+    button.removeAttribute("aria-busy");
+  }
+}
+
+function installPasswordControls() {
+  document.querySelectorAll(".cloud-sync-field input[type=password]").forEach(input => {
+    if (input.dataset.passwordControl === "true") return;
+    input.dataset.passwordControl = "true";
+    const wrapper = document.createElement("div");
+    wrapper.className = "password-input-wrap";
+    input.before(wrapper);
+    wrapper.append(input);
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "password-visibility";
+    toggle.textContent = "表示";
+    toggle.setAttribute("aria-label", `${input.labels?.[0]?.textContent || "PASS"}を表示`);
+    toggle.addEventListener("click", () => {
+      const show = input.type === "password";
+      input.type = show ? "text" : "password";
+      toggle.textContent = show ? "隠す" : "表示";
+      toggle.setAttribute("aria-label", `${input.labels?.[0]?.textContent || "PASS"}を${show ? "隠す" : "表示"}`);
+      input.focus();
+    });
+    wrapper.append(toggle);
+
+    const meta = document.createElement("span");
+    meta.className = "secret-input-meta";
+    meta.setAttribute("aria-live", "polite");
+    wrapper.after(meta);
+    const updateMeta = event => {
+      const result = inspectPass(input.value, {
+        label: input === ui.creationCode ? "会社PASS" : "PASS",
+        minLength: Number(input.minLength > 0 ? input.minLength : 1),
+        maxLength: input === ui.creationCode ? 64 : Number(input.maxLength > 0 ? input.maxLength : 64),
+        maxBytes: 72
+      });
+      const caps = event?.getModifierState?.("CapsLock") ? " / Caps Lockがオンです" : "";
+      meta.textContent = `${result.length}文字 / ${result.bytes}バイト${caps}`;
+      meta.classList.toggle("error", Boolean(input.value && !result.valid));
+    };
+    input.addEventListener("input", updateMeta);
+    input.addEventListener("keyup", updateMeta);
+    updateMeta();
+  });
+}
+
+installPasswordControls();
 
 function requestResult(request) {
   return new Promise((resolve, reject) => {
@@ -149,38 +218,21 @@ function validateConfig(input) {
 function validateSiteCreation(input) {
   const siteName = String(input.siteName || "").trim();
   const siteCode = String(input.siteCode || "").trim().toUpperCase();
-  const joinCode = String(input.joinCode || "");
+  const joinCode = validateProjectPass(input.joinCode);
   const joinCodeConfirm = String(input.joinCodeConfirm || "");
   const deviceName = String(input.deviceName || "").trim();
-  const creationCode = String(input.creationCode || "");
+  const creationCode = validateCompanyPass(input.creationCode);
   const adminCode = validateAdminCode(input.adminCode, input.adminCodeConfirm);
   const control = /[\u0000-\u001f\u007f]/;
-  if (!siteName || siteName.length > 160 || control.test(siteName)) throw new Error("現場名は1～160文字で入力してください");
-  if (!/^[A-Z0-9][A-Z0-9_-]{2,39}$/.test(siteCode)) throw new Error("現場IDは英大文字・数字・_・-を使い、3～40文字で入力してください");
-  if (joinCode.length < 8 || joinCode.length > 64 || new TextEncoder().encode(joinCode).length > 72 || /[\s\u0000-\u001f\u007f]/.test(joinCode)) {
-    throw new Error("参加コードは空白を含まない8～64文字で入力してください");
-  }
-  if (joinCode !== joinCodeConfirm) throw new Error("参加コードと確認入力が一致しません");
+  if (!siteName || textLength(siteName) > 160 || control.test(siteName)) throw new Error("工事名は1～160文字で入力してください");
+  if (!/^[A-Z0-9][A-Z0-9_-]{2,39}$/.test(siteCode)) throw new Error("工事IDは英大文字・数字・_・-を使い、3～40文字で入力してください");
+  if (joinCode !== joinCodeConfirm) throw new Error("工事PASSと確認入力が一致しません");
   if (!deviceName || deviceName.length > 80 || control.test(deviceName)) throw new Error("端末の名前は1～80文字で入力してください");
-  if (creationCode.length < 16 || creationCode.length > 64 || new TextEncoder().encode(creationCode).length > 72 || /[\s\u0000-\u001f\u007f]/.test(creationCode)) {
-    throw new Error("現場作成コードは空白を含まない16～64文字で入力してください");
-  }
   return { siteName, siteCode, joinCode, deviceName, creationCode, adminCode };
 }
 
 function validateAdminCode(value, confirmation) {
-  const code = String(value || "");
-  if (code !== String(confirmation || "")) throw new Error("現場管理コードと確認入力が一致しません");
-  const categories = [
-    /[a-z]/.test(code), /[A-Z]/.test(code), /[0-9]/.test(code), /[^A-Za-z0-9]/.test(code)
-  ].filter(Boolean).length;
-  if (code.length < 8 || code.length > 64 || new TextEncoder().encode(code).length > 72
-      || /[\s\u0000-\u001f\u007f]/.test(code) || categories < 2
-      || /^(password|admin|administrator|qwerty|letmein|aopen|aoalb|aopic|12345678|87654321)$/i.test(code)
-      || /^(.)\1{7,}$/.test(code)) {
-    throw new Error("現場管理コードは空白を含まない8～64文字で、英字・数字・記号のうち2種類以上を使用してください");
-  }
-  return code;
+  return validateAdministratorPass(value, confirmation);
 }
 
 function readConfig() {
@@ -440,8 +492,8 @@ async function createProvider(config) {
       const row = Array.isArray(data) ? data[0] : data;
       if (!row?.site_id) {
         if (row?.error_code === "temporarily_blocked") throw new Error("参加が一時的に制限されています。15分ほど待って再度お試しください");
-        if (row?.error_code === "membership_disabled") throw new Error("この現場への参加は無効化されています");
-        throw new Error("現場IDまたは参加コードが正しくありません");
+        if (row?.error_code === "membership_disabled") throw new Error("この工事への参加は無効化されています");
+        throw new Error("工事IDまたは工事PASSが正しくありません");
       }
       return { siteId: row.site_id, siteCode: row.site_code, siteName: row.site_name, role: row.member_role, deviceName };
     },
@@ -459,16 +511,20 @@ async function createProvider(config) {
             p_site_admin_code: adminCode
           }
         });
-      } catch (_) {
-        throw new Error("現場を作成できませんでした。接続状態を確認して、もう一度お試しください");
+      } catch (error) {
+        const code = String(error?.code || "");
+        if (code === "401") throw new Error("認証を確認できませんでした。工事の共有を開始し直してください");
+        if (code === "404" || /PGRST202/i.test(code)) throw new Error("共有工事の作成機能を確認できません。管理者へ連絡してください");
+        if (code === "429") throw new Error("操作が一時的に制限されています。しばらく待ってからお試しください");
+        throw new Error("共有工事を作成できませんでした。通信状態を確認して、もう一度お試しください");
       }
       const row = Array.isArray(data) ? data[0] : data;
       if (!row?.site_id) {
-        if (row?.error_code === "temporarily_blocked") throw new Error("現場作成が一時的に制限されています。15分ほど待って再度お試しください");
-        if (row?.error_code === "site_code_exists") throw new Error("その現場IDはすでに使用されています。別の現場IDを入力してください");
-        if (row?.error_code === "creation_unavailable") throw new Error("現場作成機能がまだ準備されていません。管理者へ確認してください");
+        if (row?.error_code === "temporarily_blocked") throw new Error("共有工事の作成が一時的に制限されています。15分ほど待って再度お試しください");
+        if (row?.error_code === "site_code_exists") throw new Error("その工事IDはすでに使用されています。別の工事IDを入力してください");
+        if (row?.error_code === "creation_unavailable") throw new Error("共有工事の作成機能がまだ準備されていません。管理者へ確認してください");
         if (row?.error_code === "auth_required") throw new Error("認証を確認できませんでした。接続先を保存し直してください");
-        throw new Error("入力内容または現場作成コードを確認してください");
+        throw new Error("会社PASSが違うか、入力内容を確認してください");
       }
       return { siteId: row.site_id, siteCode: row.site_code, siteName: row.site_name, role: row.member_role, deviceName, adminCodeConfigured: row.admin_code_configured === true };
     },
@@ -480,7 +536,7 @@ async function createProvider(config) {
       const row = Array.isArray(data) ? data[0] : data;
       if (!row?.site_id) {
         if (row?.error_code === "temporarily_blocked") throw new Error("確認回数が上限に達しました。15分ほど待って再度お試しください");
-        throw new Error("現場管理コードが違うか、現在利用できません");
+        throw new Error("管理者PASSが違うか、現在利用できません");
       }
       return {
         siteId: row.site_id, siteCode: row.site_code, siteName: row.site_name,
@@ -690,6 +746,14 @@ async function render() {
   ui.pending.textContent = `${summary.pending + summary.paused + summary.error}件 / ${formatBytes(summary.bytes)}`;
   ui.synced.textContent = `${summary.synced}件`;
   ui.errors.textContent = `${summary.error}件`;
+  window.aoPICCloudUiState = Object.freeze({
+    connected: configured,
+    siteId: identity?.siteId || "",
+    siteName: identity?.siteName || "",
+    projectId: ui.project.value || "",
+    role: identity?.role || ""
+  });
+  window.dispatchEvent(new CustomEvent("aoPIC:cloud-ui-state", { detail: window.aoPICCloudUiState }));
   ui.progress.max = Math.max(1, summary.total);
   ui.progress.value = Math.min(summary.total, summary.synced + summary.error);
   const writable = configured && identity?.siteStatus !== "closed" && identity?.siteStatus !== "trashed";
@@ -721,9 +785,9 @@ async function render() {
     ui.deleteEmptyBox.hidden = identity.siteStatus !== "trashed";
     ui.adminAccessStatus.textContent = identity.adminCodeConfigured
       ? "別端末から管理者として入れる設定済みです。変更すると旧コードは直ちに使えなくなります。"
-      : "別端末から管理するため、現場管理コードを設定してください。";
+      : "別端末から管理するため、管理者PASSを設定してください。";
     ui.adminAccessSave.textContent = identity.adminCodeConfigured
-      ? "現場管理コードを変更" : "現場管理コードを設定";
+      ? "管理者PASSを変更" : "管理者PASSを設定";
     await renderMembers();
   }
 }
@@ -735,9 +799,10 @@ async function refreshIdentitySite() {
   await render();
 }
 
-async function runAdminAction(label, action) {
+async function runAdminAction(label, action, button = null) {
   if (identity?.role !== "admin" || siteActionBusy) return;
   siteActionBusy = true;
+  setButtonBusy(button, true, `${label}中…`);
   try {
     message(`${label}しています…`);
     const result = await action();
@@ -752,6 +817,8 @@ async function runAdminAction(label, action) {
       : (error.message || `${label}できませんでした`), true);
   } finally {
     siteActionBusy = false;
+    setButtonBusy(button, false);
+    await render();
   }
 }
 
@@ -776,6 +843,7 @@ async function processQueue({ manual = false } = {}) {
     if (!confirm(`未送信の写真${rows.length}件（${formatBytes(total)}）を${networkLabel(network)}で送信します。\nよろしいですか？`)) return;
   }
   busy = true;
+  setButtonBusy(ui.now, true, "送信中…");
   await render();
   try {
     for (let index = 0; index < rows.length && !paused; index += 1) {
@@ -815,6 +883,7 @@ async function processQueue({ manual = false } = {}) {
     }
   } finally {
     busy = false;
+    setButtonBusy(ui.now, false);
     await render();
   }
 }
@@ -878,6 +947,7 @@ ui.createSite.addEventListener("click", async () => {
   if (!provider) return message("先に接続先を保存してください", true);
   if (siteActionBusy) return;
   siteActionBusy = true;
+  setButtonBusy(ui.createSite, true, "共有工事を作成中…");
   try {
     await render();
     const input = validateSiteCreation({
@@ -909,6 +979,7 @@ ui.createSite.addEventListener("click", async () => {
     ui.createAdminCodeConfirm.value = "";
     ui.creationCode.value = "";
     siteActionBusy = false;
+    setButtonBusy(ui.createSite, false);
     await render();
   }
 });
@@ -917,6 +988,7 @@ ui.join.addEventListener("click", async () => {
   if (!provider) return message("先に接続先を保存してください", true);
   if (siteActionBusy) return;
   siteActionBusy = true;
+  setButtonBusy(ui.join, true, "参加中…");
   try {
     await render();
     const joined = await provider.joinSite({ siteCode: ui.siteCode.value.trim(), joinCode: ui.joinCode.value, deviceName: ui.deviceName.value.trim() || "この端末" });
@@ -932,6 +1004,7 @@ ui.join.addEventListener("click", async () => {
   } finally {
     ui.joinCode.value = "";
     siteActionBusy = false;
+    setButtonBusy(ui.join, false);
     await render();
   }
 });
@@ -940,6 +1013,7 @@ ui.adminClaim.addEventListener("click", async () => {
   if (!provider) return message("先に工事の共有を開始してください", true);
   if (siteActionBusy) return;
   siteActionBusy = true;
+  setButtonBusy(ui.adminClaim, true, "接続中…");
   try {
     const claimed = await provider.claimSiteAdmin({
       siteCode: ui.adminClaimSiteCode.value.trim(),
@@ -951,10 +1025,11 @@ ui.adminClaim.addEventListener("click", async () => {
     await setSetting(IDENTITY_KEY, identity);
     message("管理者として接続しました");
   } catch (error) {
-    message(error?.message || "現場管理コードが違うか、現在利用できません", true);
+    message(error?.message || "管理者PASSが違うか、現在利用できません", true);
   } finally {
     ui.adminClaimCode.value = "";
     siteActionBusy = false;
+    setButtonBusy(ui.adminClaim, false);
     await render();
   }
 });
@@ -1025,16 +1100,16 @@ ui.adminSave.addEventListener("click", () => runAdminAction("工事情報を保�
     p_site_id: identity.siteId, p_expected_revision: identity.siteRevision,
     p_name: ui.adminSiteName.value, p_site_code: ui.adminSiteCode.value
   });
-}));
-ui.adminRotateCode.addEventListener("click", () => runAdminAction("参加コードを変更", async () => {
+}, ui.adminSave));
+ui.adminRotateCode.addEventListener("click", () => runAdminAction("工事PASSを変更", async () => {
   const code = ui.adminJoinCode.value;
-  if (!code || code !== ui.adminJoinCodeConfirm.value) throw new Error("参加コードと確認入力が一致しません");
+  if (!code || code !== ui.adminJoinCodeConfirm.value) throw new Error("工事PASSと確認入力が一致しません");
   await provider.siteRpc("rotate_site_join_code", { p_site_id: identity.siteId, p_new_code: code, p_grant_role: "editor" });
   ui.adminJoinCode.value = "";
   ui.adminJoinCodeConfirm.value = "";
-}));
+}, ui.adminRotateCode));
 ui.adminAccessSave.addEventListener("click", () => runAdminAction(
-  identity?.adminCodeConfigured ? "現場管理コードを変更" : "現場管理コードを設定",
+  identity?.adminCodeConfigured ? "管理者PASSを変更" : "管理者PASSを設定",
   async () => {
     try {
       const code = validateAdminCode(ui.adminAccessCode.value, ui.adminAccessCodeConfirm.value);
@@ -1047,21 +1122,22 @@ ui.adminAccessSave.addEventListener("click", () => runAdminAction(
       ui.adminAccessCode.value = "";
       ui.adminAccessCodeConfirm.value = "";
     }
-  }
+  },
+  ui.adminAccessSave
 ));
 ui.adminClose.addEventListener("click", async () => {
   const rows = await getQueue(), count = rows.filter(row => row.siteId === identity?.siteId && ["pending","paused","error"].includes(row.status)).length;
   if (!confirm(`工事を終了すると新しい参加と写真送信が止まります。写真・台帳・参加者は削除されません。${count ? `\n送信待ちの写真が${count}件あります。` : ""}\nよろしいですか？`)) return;
-  runAdminAction("工事を終了", () => provider.siteRpc("close_site", { p_site_id: identity.siteId, p_expected_revision: identity.siteRevision }));
+  runAdminAction("工事を終了", () => provider.siteRpc("close_site", { p_site_id: identity.siteId, p_expected_revision: identity.siteRevision }), ui.adminClose);
 });
-ui.adminReopen.addEventListener("click", () => runAdminAction("工事を再開", () => provider.siteRpc("reopen_site", { p_site_id: identity.siteId, p_expected_revision: identity.siteRevision })));
+ui.adminReopen.addEventListener("click", () => runAdminAction("工事を再開", () => provider.siteRpc("reopen_site", { p_site_id: identity.siteId, p_expected_revision: identity.siteRevision }), ui.adminReopen));
 ui.adminTrash.addEventListener("click", () => {
   if (prompt("ごみ箱へ移動しても写真は削除されません。確認のため工事名を入力してください。") !== identity.siteName) return;
-  runAdminAction("工事をごみ箱へ移動", () => provider.siteRpc("trash_site", { p_site_id: identity.siteId, p_expected_revision: identity.siteRevision }));
+  runAdminAction("工事をごみ箱へ移動", () => provider.siteRpc("trash_site", { p_site_id: identity.siteId, p_expected_revision: identity.siteRevision }), ui.adminTrash);
 });
 ui.adminRestore.addEventListener("click", () => runAdminAction("工事を復元", () => provider.siteRpc("restore_site", {
   p_site_id: identity.siteId, p_expected_revision: identity.siteRevision
-})));
+}), ui.adminRestore));
 ui.adminDeleteEmpty.addEventListener("click", () => {
   const confirmed = prompt("空工事であることを共有先で再確認します。完全削除する工事名を入力してください。");
   if (confirmed !== identity.siteName) return;
@@ -1073,7 +1149,7 @@ ui.adminDeleteEmpty.addEventListener("click", () => {
     await refreshMemberships();
     await setSetting(IDENTITY_KEY, identity);
     return { skipRefresh: true };
-  });
+  }, ui.adminDeleteEmpty);
 });
 ui.badge.addEventListener("click", () => bridge.showSettings());
 window.addEventListener("aoPIC:photo-saved", event => enqueueSavedPhoto(event.detail?.photoUid).catch(error => message(error.message, true)));
