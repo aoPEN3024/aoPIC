@@ -20,6 +20,8 @@ let deploymentConfig;
 let busy = false;
 let paused = false;
 let siteActionBusy = false;
+let memberships = [];
+let siteStatusFilter = "active";
 
 const byId = id => document.getElementById(id);
 const ui = {
@@ -28,6 +30,7 @@ const ui = {
   deviceName: byId("cloudDeviceName"), join: byId("cloudJoin"), site: byId("cloudSite"), role: byId("cloudRole"),
   createSiteName: byId("cloudCreateSiteName"), createSiteCode: byId("cloudCreateSiteCode"),
   createJoinCode: byId("cloudCreateJoinCode"), createJoinCodeConfirm: byId("cloudCreateJoinCodeConfirm"),
+  createAdminCode: byId("cloudCreateAdminCode"), createAdminCodeConfirm: byId("cloudCreateAdminCodeConfirm"),
   createDeviceName: byId("cloudCreateDeviceName"), creationCode: byId("cloudCreationCode"),
   createSite: byId("cloudCreateSite"),
   network: byId("cloudNetwork"), pending: byId("cloudPending"), synced: byId("cloudSynced"), errors: byId("cloudErrors"),
@@ -40,7 +43,16 @@ Object.assign(ui, {
   adminSiteCode: byId("cloudAdminSiteCode"), adminSave: byId("cloudAdminSave"),
   adminJoinCode: byId("cloudAdminJoinCode"), adminJoinCodeConfirm: byId("cloudAdminJoinCodeConfirm"),
   adminRotateCode: byId("cloudAdminRotateCode"), adminClose: byId("cloudAdminClose"),
-  adminReopen: byId("cloudAdminReopen"), adminTrash: byId("cloudAdminTrash")
+  adminReopen: byId("cloudAdminReopen"), adminTrash: byId("cloudAdminTrash"),
+  adminRestore: byId("cloudAdminRestore"), deleteEmptyBox: byId("cloudDeleteEmptyBox"),
+  adminDeleteEmpty: byId("cloudAdminDeleteEmpty"), adminClaimSiteCode: byId("cloudAdminClaimSiteCode"),
+  adminClaimCode: byId("cloudAdminClaimCode"), adminClaimDeviceName: byId("cloudAdminClaimDeviceName"),
+  adminClaim: byId("cloudAdminClaim"), siteListPanel: byId("cloudSiteListPanel"),
+  siteList: byId("cloudSiteList"), siteListEmpty: byId("cloudSiteListEmpty"),
+  nonAdminNotice: byId("cloudNonAdminNotice"), adminCodeUnavailable: byId("cloudAdminCodeUnavailable"),
+  openAdminClaim: byId("cloudOpenAdminClaim"), adminAccessStatus: byId("cloudAdminAccessStatus"),
+  adminAccessCode: byId("cloudAdminAccessCode"), adminAccessCodeConfirm: byId("cloudAdminAccessCodeConfirm"),
+  adminAccessSave: byId("cloudAdminAccessSave"), memberList: byId("cloudMemberList")
 });
 
 function requestResult(request) {
@@ -141,6 +153,7 @@ function validateSiteCreation(input) {
   const joinCodeConfirm = String(input.joinCodeConfirm || "");
   const deviceName = String(input.deviceName || "").trim();
   const creationCode = String(input.creationCode || "");
+  const adminCode = validateAdminCode(input.adminCode, input.adminCodeConfirm);
   const control = /[\u0000-\u001f\u007f]/;
   if (!siteName || siteName.length > 160 || control.test(siteName)) throw new Error("現場名は1～160文字で入力してください");
   if (!/^[A-Z0-9][A-Z0-9_-]{2,39}$/.test(siteCode)) throw new Error("現場IDは英大文字・数字・_・-を使い、3～40文字で入力してください");
@@ -152,7 +165,22 @@ function validateSiteCreation(input) {
   if (creationCode.length < 16 || creationCode.length > 64 || new TextEncoder().encode(creationCode).length > 72 || /[\s\u0000-\u001f\u007f]/.test(creationCode)) {
     throw new Error("現場作成コードは空白を含まない16～64文字で入力してください");
   }
-  return { siteName, siteCode, joinCode, deviceName, creationCode };
+  return { siteName, siteCode, joinCode, deviceName, creationCode, adminCode };
+}
+
+function validateAdminCode(value, confirmation) {
+  const code = String(value || "");
+  if (code !== String(confirmation || "")) throw new Error("現場管理コードと確認入力が一致しません");
+  const categories = [
+    /[a-z]/.test(code), /[A-Z]/.test(code), /[0-9]/.test(code), /[^A-Za-z0-9]/.test(code)
+  ].filter(Boolean).length;
+  if (code.length < 8 || code.length > 64 || new TextEncoder().encode(code).length > 72
+      || /[\s\u0000-\u001f\u007f]/.test(code) || categories < 2
+      || /^(password|admin|administrator|qwerty|letmein|aopen|aoalb|aopic|12345678|87654321)$/i.test(code)
+      || /^(.)\1{7,}$/.test(code)) {
+    throw new Error("現場管理コードは空白を含まない8～64文字で、英字・数字・記号のうち2種類以上を使用してください");
+  }
+  return code;
 }
 
 function readConfig() {
@@ -393,10 +421,19 @@ async function createProvider(config) {
       return current.user?.id;
     },
     async restoreMembership() {
-      const rows = await api(query("site_members", { select: "site_id,role,device_name,sites!inner(site_code,name,status,revision)", active: "eq.true", order: "last_seen_at.desc", limit: 2 }));
+      const rows = await api("/rest/v1/rpc/list_my_sites", { method: "POST", body: {} });
       if (!Array.isArray(rows) || rows.length !== 1) return null;
       const row = rows[0];
-      return { siteId: row.site_id, siteCode: row.sites?.site_code, siteName: row.sites?.name, siteStatus: row.sites?.status || "active", siteRevision: Number(row.sites?.revision || 1), role: row.role, deviceName: row.device_name || "この端末" };
+      return { siteId: row.site_id, siteCode: row.site_code, siteName: row.site_name, siteStatus: row.site_status || "active", siteRevision: Number(row.site_revision || 1), role: row.member_role, deviceName: row.device_name || "この端末", updatedAt: row.site_updated_at, adminCodeConfigured: row.admin_code_configured === true };
+    },
+    async listMySites() {
+      const rows = await api("/rest/v1/rpc/list_my_sites", { method: "POST", body: {} });
+      return (rows || []).map(row => ({
+        siteId: row.site_id, siteCode: row.site_code, siteName: row.site_name,
+        siteStatus: row.site_status || "active", siteRevision: Number(row.site_revision || 1),
+        role: row.member_role, deviceName: row.device_name || "この端末",
+        updatedAt: row.site_updated_at, adminCodeConfigured: row.admin_code_configured === true
+      }));
     },
     async joinSite({ siteCode, joinCode, deviceName }) {
       const data = await api("/rest/v1/rpc/join_site", { method: "POST", body: { p_site_code: siteCode, p_join_code: joinCode, p_device_name: deviceName } });
@@ -408,7 +445,7 @@ async function createProvider(config) {
       }
       return { siteId: row.site_id, siteCode: row.site_code, siteName: row.site_name, role: row.member_role, deviceName };
     },
-    async createSite({ siteName, siteCode, joinCode, deviceName, creationCode }) {
+    async createSite({ siteName, siteCode, joinCode, deviceName, creationCode, adminCode }) {
       let data;
       try {
         data = await api("/rest/v1/rpc/create_site", {
@@ -418,7 +455,8 @@ async function createProvider(config) {
             p_site_code: siteCode,
             p_site_join_code: joinCode,
             p_device_name: deviceName,
-            p_site_creation_code: creationCode
+            p_site_creation_code: creationCode,
+            p_site_admin_code: adminCode
           }
         });
       } catch (_) {
@@ -432,7 +470,24 @@ async function createProvider(config) {
         if (row?.error_code === "auth_required") throw new Error("認証を確認できませんでした。接続先を保存し直してください");
         throw new Error("入力内容または現場作成コードを確認してください");
       }
-      return { siteId: row.site_id, siteCode: row.site_code, siteName: row.site_name, role: row.member_role, deviceName };
+      return { siteId: row.site_id, siteCode: row.site_code, siteName: row.site_name, role: row.member_role, deviceName, adminCodeConfigured: row.admin_code_configured === true };
+    },
+    async claimSiteAdmin({ siteCode, adminCode, deviceName }) {
+      const data = await api("/rest/v1/rpc/claim_site_admin", {
+        method: "POST",
+        body: { p_site_code: siteCode, p_site_admin_code: adminCode, p_device_name: deviceName }
+      });
+      const row = Array.isArray(data) ? data[0] : data;
+      if (!row?.site_id) {
+        if (row?.error_code === "temporarily_blocked") throw new Error("確認回数が上限に達しました。15分ほど待って再度お試しください");
+        throw new Error("現場管理コードが違うか、現在利用できません");
+      }
+      return {
+        siteId: row.site_id, siteCode: row.site_code, siteName: row.site_name,
+        role: row.member_role, siteStatus: row.site_status || "active",
+        siteRevision: Number(row.site_revision || 1),
+        adminCodeConfigured: row.admin_code_configured === true, deviceName
+      };
     },
     async refreshSite(siteId) {
       const row = oneOrNull(await api(query("sites", { select: "id,site_code,name,status,revision", id: `eq.${siteId}`, limit: 1 })));
@@ -441,6 +496,7 @@ async function createProvider(config) {
     },
     async siteRpc(name, body) {
       const result = await api(`/rest/v1/rpc/${name}`, { method: "POST", body });
+      if (name === "list_site_members_admin") return result || [];
       return Array.isArray(result) ? result[0] : result;
     },
     async uploadPhotoPackage(pkg) {
@@ -531,6 +587,98 @@ function summarize(rows, siteId = identity?.siteId) {
   return result;
 }
 
+function siteStatusLabel(value) {
+  return ({ active: "利用中", closed: "終了済み", trashed: "ごみ箱" })[value] || value;
+}
+
+function renderSiteList() {
+  const rows = memberships.filter(item => item.siteStatus === siteStatusFilter);
+  ui.siteList.replaceChildren(...rows.map(item => {
+    const card = document.createElement("div");
+    card.className = "cloud-site-item";
+    if (item.siteId === identity?.siteId) card.classList.add("selected");
+    const title = document.createElement("h4");
+    title.textContent = item.siteName;
+    const meta = document.createElement("p");
+    const updated = item.updatedAt ? new Date(item.updatedAt).toLocaleString("ja-JP") : "―";
+    meta.textContent = `${item.siteCode} / ${roleLabel(item.role)} / ${siteStatusLabel(item.siteStatus)} / 最終更新 ${updated}`;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = item.siteId === identity?.siteId ? "この工事を表示中" : "この工事を開く";
+    button.disabled = item.siteId === identity?.siteId;
+    button.addEventListener("click", () => switchSite(item));
+    card.append(title, meta, button);
+    return card;
+  }));
+  ui.siteListEmpty.hidden = rows.length > 0;
+  document.querySelectorAll("[data-cloud-site-status]").forEach(button => {
+    button.classList.toggle("active", button.dataset.cloudSiteStatus === siteStatusFilter);
+  });
+}
+
+async function refreshMemberships() {
+  memberships = provider?.listMySites ? await provider.listMySites() : [];
+  const current = memberships.find(item => item.siteId === identity?.siteId);
+  if (current) identity = { ...identity, ...current };
+}
+
+async function switchSite(item) {
+  if (siteActionBusy || !item?.siteId) return;
+  siteActionBusy = true;
+  try {
+    identity = { ...identity, ...item };
+    await setSetting(IDENTITY_KEY, identity);
+    message(`${item.siteName}を開きました`);
+    await render();
+  } catch (error) {
+    message(error?.message || "工事を切り替えられませんでした", true);
+  } finally {
+    siteActionBusy = false;
+    await render();
+  }
+}
+
+async function renderMembers() {
+  if (!provider || identity?.role !== "admin") return;
+  try {
+    const rows = await provider.siteRpc("list_site_members_admin", { p_site_id: identity.siteId });
+    ui.memberList.replaceChildren(...rows.map(member => {
+      const row = document.createElement("div");
+      row.className = "cloud-member-item";
+      const text = document.createElement("span");
+      text.textContent = `${member.device_name} / ${roleLabel(member.member_role)} / ${new Date(member.last_seen_at).toLocaleString("ja-JP")} / ${member.active ? "有効" : "停止中"}${member.is_current_device ? "（この端末）" : ""}`;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = member.active ? "停止" : "再開";
+      button.addEventListener("click", () => toggleMember(member));
+      row.append(text, button);
+      return row;
+    }));
+  } catch (_) {
+    ui.memberList.textContent = "端末一覧を確認できませんでした";
+  }
+}
+
+async function toggleMember(member) {
+  const nextActive = !member.active;
+  if (member.is_current_device && !nextActive
+      && !confirm("この端末を停止すると、この工事を操作できなくなります。別の有効な管理者端末があることを確認しましたか？")) return;
+  if (!member.is_current_device && !confirm(`${member.device_name}を${nextActive ? "再開" : "停止"}しますか？`)) return;
+  await runAdminAction(nextActive ? "端末を再開" : "端末を停止", async () => {
+    await provider.siteRpc("set_site_member_active_v2", {
+      p_site_id: identity.siteId, p_member_id: member.member_id,
+      p_active: nextActive, p_expected_revision: identity.siteRevision
+    });
+    if (member.is_current_device && !nextActive) {
+      identity = { userId: identity.userId };
+      await refreshMemberships();
+      await setSetting(IDENTITY_KEY, identity);
+      return { skipRefresh: true };
+    }
+    return null;
+  });
+}
+
 async function render() {
   const rows = await getQueue();
   const summary = summarize(rows);
@@ -553,15 +701,30 @@ async function render() {
   ui.enqueue.disabled = !writable || identity?.role === "viewer" || !ui.project.value;
   ui.createSite.disabled = siteActionBusy || !provider;
   ui.join.disabled = siteActionBusy || !provider;
+  ui.adminClaim.disabled = siteActionBusy || !provider;
   ui.badge.textContent = `未送信 ${summary.pending + summary.paused + summary.error}件`;
   ui.badge.classList.toggle("show", configured || summary.total > 0);
   const admin = configured && identity?.role === "admin";
   ui.adminPanel.hidden = !admin;
+  ui.nonAdminNotice.hidden = !configured || admin;
+  ui.adminCodeUnavailable.hidden = !configured || Boolean(identity?.adminCodeConfigured);
+  ui.openAdminClaim.hidden = !identity?.adminCodeConfigured;
+  ui.siteListPanel.hidden = !provider || memberships.length === 0;
+  renderSiteList();
   if (admin) {
     if (document.activeElement !== ui.adminSiteName) ui.adminSiteName.value = identity.siteName || "";
     if (document.activeElement !== ui.adminSiteCode) ui.adminSiteCode.value = identity.siteCode || "";
     ui.adminClose.style.display = identity.siteStatus === "closed" ? "none" : "";
     ui.adminReopen.style.display = identity.siteStatus === "closed" ? "" : "none";
+    ui.adminTrash.style.display = identity.siteStatus === "trashed" ? "none" : "";
+    ui.adminRestore.style.display = identity.siteStatus === "trashed" ? "" : "none";
+    ui.deleteEmptyBox.hidden = identity.siteStatus !== "trashed";
+    ui.adminAccessStatus.textContent = identity.adminCodeConfigured
+      ? "別端末から管理者として入れる設定済みです。変更すると旧コードは直ちに使えなくなります。"
+      : "別端末から管理するため、現場管理コードを設定してください。";
+    ui.adminAccessSave.textContent = identity.adminCodeConfigured
+      ? "現場管理コードを変更" : "現場管理コードを設定";
+    await renderMembers();
   }
 }
 
@@ -577,8 +740,11 @@ async function runAdminAction(label, action) {
   siteActionBusy = true;
   try {
     message(`${label}しています…`);
-    await action();
-    await refreshIdentitySite();
+    const result = await action();
+    if (!result?.skipRefresh) {
+      await refreshIdentitySite();
+      await refreshMemberships();
+    }
     message(`${label}しました`);
   } catch (error) {
     message(/revision_conflict/i.test(error.message)
@@ -658,10 +824,11 @@ async function connect(config, quiet = false) {
   const userId = await provider.authenticate();
   if (identity?.userId && identity.userId !== userId) identity = null;
   identity = { ...(identity || {}), userId };
-  if (!identity.siteId) {
-    const restored = await provider.restoreMembership();
-    if (restored) identity = { ...identity, ...restored };
-  }
+  await refreshMemberships();
+  const selected = memberships.find(item => item.siteId === identity.siteId);
+  if (selected) identity = { ...identity, ...selected };
+  else if (memberships.length === 1) identity = { ...identity, ...memberships[0] };
+  else if (identity.siteId) identity = { userId };
   await setSetting(IDENTITY_KEY, identity);
   localStorage.setItem(MODE_KEY, "cloud");
   if (!quiet) message(identity.siteId
@@ -718,12 +885,15 @@ ui.createSite.addEventListener("click", async () => {
       siteCode: ui.createSiteCode.value,
       joinCode: ui.createJoinCode.value,
       joinCodeConfirm: ui.createJoinCodeConfirm.value,
+      adminCode: ui.createAdminCode.value,
+      adminCodeConfirm: ui.createAdminCodeConfirm.value,
       deviceName: ui.createDeviceName.value,
       creationCode: ui.creationCode.value
     });
     message("新しい共有現場を作成しています…");
     const created = await provider.createSite(input);
     identity = { userId: identity?.userId, ...created };
+    await refreshMemberships();
     await setSetting(IDENTITY_KEY, identity);
     await refreshIdentitySite();
     ui.createSiteCode.value = created.siteCode;
@@ -735,6 +905,8 @@ ui.createSite.addEventListener("click", async () => {
   } finally {
     ui.createJoinCode.value = "";
     ui.createJoinCodeConfirm.value = "";
+    ui.createAdminCode.value = "";
+    ui.createAdminCodeConfirm.value = "";
     ui.creationCode.value = "";
     siteActionBusy = false;
     await render();
@@ -749,6 +921,7 @@ ui.join.addEventListener("click", async () => {
     await render();
     const joined = await provider.joinSite({ siteCode: ui.siteCode.value.trim(), joinCode: ui.joinCode.value, deviceName: ui.deviceName.value.trim() || "この端末" });
     identity = { ...identity, ...joined };
+    await refreshMemberships();
     await setSetting(IDENTITY_KEY, identity);
     await refreshIdentitySite();
     message(`${identity.siteName || identity.siteCode}に参加しました（${roleLabel(identity.role)}）`);
@@ -762,6 +935,38 @@ ui.join.addEventListener("click", async () => {
     await render();
   }
 });
+
+ui.adminClaim.addEventListener("click", async () => {
+  if (!provider) return message("先に工事の共有を開始してください", true);
+  if (siteActionBusy) return;
+  siteActionBusy = true;
+  try {
+    const claimed = await provider.claimSiteAdmin({
+      siteCode: ui.adminClaimSiteCode.value.trim(),
+      adminCode: ui.adminClaimCode.value,
+      deviceName: ui.adminClaimDeviceName.value.trim() || "この端末"
+    });
+    identity = { ...identity, ...claimed };
+    await refreshMemberships();
+    await setSetting(IDENTITY_KEY, identity);
+    message("管理者として接続しました");
+  } catch (error) {
+    message(error?.message || "現場管理コードが違うか、現在利用できません", true);
+  } finally {
+    ui.adminClaimCode.value = "";
+    siteActionBusy = false;
+    await render();
+  }
+});
+ui.openAdminClaim.addEventListener("click", () => {
+  ui.adminClaimSiteCode.value = identity?.siteCode || "";
+  ui.adminClaimDeviceName.value = identity?.deviceName || "この端末";
+  ui.adminClaimCode.focus();
+});
+document.querySelectorAll("[data-cloud-site-status]").forEach(button => button.addEventListener("click", () => {
+  siteStatusFilter = button.dataset.cloudSiteStatus;
+  renderSiteList();
+}));
 
 ui.mode.addEventListener("change", async () => {
   const previous = await settings();
@@ -828,15 +1033,47 @@ ui.adminRotateCode.addEventListener("click", () => runAdminAction("参加コー�
   ui.adminJoinCode.value = "";
   ui.adminJoinCodeConfirm.value = "";
 }));
+ui.adminAccessSave.addEventListener("click", () => runAdminAction(
+  identity?.adminCodeConfigured ? "現場管理コードを変更" : "現場管理コードを設定",
+  async () => {
+    try {
+      const code = validateAdminCode(ui.adminAccessCode.value, ui.adminAccessCodeConfirm.value);
+      await provider.siteRpc(
+        identity.adminCodeConfigured ? "rotate_site_admin_code" : "set_initial_site_admin_code",
+        { p_site_id: identity.siteId, p_expected_revision: identity.siteRevision, p_new_code: code }
+      );
+      identity.adminCodeConfigured = true;
+    } finally {
+      ui.adminAccessCode.value = "";
+      ui.adminAccessCodeConfirm.value = "";
+    }
+  }
+));
 ui.adminClose.addEventListener("click", async () => {
   const rows = await getQueue(), count = rows.filter(row => row.siteId === identity?.siteId && ["pending","paused","error"].includes(row.status)).length;
-  if (!confirm(`共有を終了すると新しい参加と写真送信が止まります。既存写真と台帳は残ります。${count ? `\n送信待ちの写真が${count}件あります。` : ""}\nよろしいですか？`)) return;
-  runAdminAction("共有を終了", () => provider.siteRpc("close_site", { p_site_id: identity.siteId, p_expected_revision: identity.siteRevision }));
+  if (!confirm(`工事を終了すると新しい参加と写真送信が止まります。写真・台帳・参加者は削除されません。${count ? `\n送信待ちの写真が${count}件あります。` : ""}\nよろしいですか？`)) return;
+  runAdminAction("工事を終了", () => provider.siteRpc("close_site", { p_site_id: identity.siteId, p_expected_revision: identity.siteRevision }));
 });
-ui.adminReopen.addEventListener("click", () => runAdminAction("共有を再開", () => provider.siteRpc("reopen_site", { p_site_id: identity.siteId, p_expected_revision: identity.siteRevision })));
+ui.adminReopen.addEventListener("click", () => runAdminAction("工事を再開", () => provider.siteRpc("reopen_site", { p_site_id: identity.siteId, p_expected_revision: identity.siteRevision })));
 ui.adminTrash.addEventListener("click", () => {
   if (prompt("ごみ箱へ移動しても写真は削除されません。確認のため工事名を入力してください。") !== identity.siteName) return;
-  runAdminAction("ごみ箱へ移動", () => provider.siteRpc("trash_site", { p_site_id: identity.siteId, p_expected_revision: identity.siteRevision }));
+  runAdminAction("工事をごみ箱へ移動", () => provider.siteRpc("trash_site", { p_site_id: identity.siteId, p_expected_revision: identity.siteRevision }));
+});
+ui.adminRestore.addEventListener("click", () => runAdminAction("工事を復元", () => provider.siteRpc("restore_site", {
+  p_site_id: identity.siteId, p_expected_revision: identity.siteRevision
+})));
+ui.adminDeleteEmpty.addEventListener("click", () => {
+  const confirmed = prompt("空工事であることを共有先で再確認します。完全削除する工事名を入力してください。");
+  if (confirmed !== identity.siteName) return;
+  runAdminAction("この工事を完全に削除", async () => {
+    await provider.siteRpc("delete_empty_site", {
+      p_site_id: identity.siteId, p_expected_revision: identity.siteRevision, p_confirm_name: confirmed
+    });
+    identity = { userId: identity.userId };
+    await refreshMemberships();
+    await setSetting(IDENTITY_KEY, identity);
+    return { skipRefresh: true };
+  });
 });
 ui.badge.addEventListener("click", () => bridge.showSettings());
 window.addEventListener("aoPIC:photo-saved", event => enqueueSavedPhoto(event.detail?.photoUid).catch(error => message(error.message, true)));
@@ -858,6 +1095,7 @@ async function init() {
   const deviceCandidate = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ? "現場スマートフォン" : "この端末";
   if (!ui.createDeviceName.value || ui.createDeviceName.value === "この端末") ui.createDeviceName.value = deviceCandidate;
   if (!ui.deviceName.value || ui.deviceName.value === "この端末") ui.deviceName.value = deviceCandidate;
+  if (!ui.adminClaimDeviceName.value || ui.adminClaimDeviceName.value === "この端末") ui.adminClaimDeviceName.value = deviceCandidate;
   if (deploymentConfig) {
     ui.projectUrl.value = deploymentConfig.projectUrl;
     message(["localhost", "127.0.0.1"].includes(location.hostname)

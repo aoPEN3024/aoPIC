@@ -246,6 +246,9 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .cloud-sync-actions button{flex:1 1 130px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);font-family:var(--font);font-weight:600}
 .cloud-sync-actions button.primary{background:var(--accent2);border-color:var(--accent2);color:#fff}
 .cloud-sync-actions button:disabled{opacity:.5;cursor:not-allowed}
+.cloud-site-tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}.cloud-site-tabs button.active{background:var(--accent2);color:#fff;border-color:var(--accent2)}
+.cloud-site-list,.cloud-member-list{display:grid;gap:8px}.cloud-site-item,.cloud-member-item{padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2)}.cloud-site-item.selected{border-color:var(--accent2);box-shadow:0 0 0 2px rgba(24,85,160,.12)}.cloud-site-item h4,.cloud-site-item p{margin:0 0 7px}.cloud-member-item{display:flex;align-items:center;justify-content:space-between;gap:8px}
+@media(max-width:520px){.cloud-member-item{align-items:stretch;flex-direction:column}}
 .cloud-sync-message{margin-top:10px;font-size:11px;line-height:1.5;white-space:pre-wrap}
 .cloud-sync-message.error{color:var(--danger)}
 .cloud-sync-field{margin-top:8px}
@@ -495,6 +498,9 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
             <div class="cloud-sync-field"><label for="cloudCreateSiteCode">工事ID</label><input id="cloudCreateSiteCode" maxlength="40" autocomplete="off" autocapitalize="characters"></div>
             <div class="cloud-sync-field"><label for="cloudCreateJoinCode">参加コード（8～64文字）</label><input id="cloudCreateJoinCode" type="password" minlength="8" maxlength="64" autocomplete="new-password"></div>
             <div class="cloud-sync-field"><label for="cloudCreateJoinCodeConfirm">参加コードの確認</label><input id="cloudCreateJoinCodeConfirm" type="password" minlength="8" maxlength="64" autocomplete="new-password"></div>
+            <div class="cloud-sync-field"><label for="cloudCreateAdminCode">現場管理コード（8～64文字）</label><input id="cloudCreateAdminCode" type="password" minlength="8" maxlength="64" autocomplete="new-password"></div>
+            <div class="cloud-sync-field"><label for="cloudCreateAdminCodeConfirm">現場管理コードの確認</label><input id="cloudCreateAdminCodeConfirm" type="password" minlength="8" maxlength="64" autocomplete="new-password"></div>
+            <p class="cloud-sync-help">現場管理コードは、別の端末から管理者として入るための工事専用コードです。参加コードや会社の現場作成コードとは異なります。</p>
             <details class="details-box"><summary>端末名を変更</summary><div class="cloud-sync-field"><label for="cloudCreateDeviceName">端末名</label><input id="cloudCreateDeviceName" maxlength="80" value="この端末"></div></details>
             <div class="cloud-sync-field"><label for="cloudCreationCode">会社の管理コード</label><input id="cloudCreationCode" type="password" minlength="16" maxlength="64" autocomplete="new-password"></div>
             <div class="cloud-sync-actions"><button id="cloudCreateSite" class="primary" type="button">共有工事を作る</button></div>
@@ -506,6 +512,26 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
             <div class="cloud-sync-field"><label for="cloudJoinCode">参加コード</label><input id="cloudJoinCode" type="password" minlength="8" maxlength="64" autocomplete="one-time-code"></div>
             <details class="details-box"><summary>端末名を変更</summary><div class="cloud-sync-field"><label for="cloudDeviceName">端末名</label><input id="cloudDeviceName" maxlength="80" value="この端末"></div></details>
             <div class="cloud-sync-actions"><button id="cloudJoin" class="primary" type="button">工事に参加</button></div>
+          </fieldset>
+          <fieldset class="cloud-sync-section">
+            <legend>管理者として入る</legend>
+            <p class="cloud-sync-help">工事ごとの現場管理コードを使い、この端末を管理者として登録します。</p>
+            <div class="cloud-sync-field"><label for="cloudAdminClaimSiteCode">工事ID</label><input id="cloudAdminClaimSiteCode" maxlength="40" autocomplete="off" autocapitalize="characters"></div>
+            <div class="cloud-sync-field"><label for="cloudAdminClaimCode">現場管理コード</label><input id="cloudAdminClaimCode" type="password" minlength="8" maxlength="64" autocomplete="one-time-code"></div>
+            <div class="cloud-sync-field"><label for="cloudAdminClaimDeviceName">この端末の名前</label><input id="cloudAdminClaimDeviceName" maxlength="80" value="この端末"></div>
+            <div class="cloud-sync-actions"><button id="cloudAdminClaim" class="primary" type="button">管理者として入る</button></div>
+          </fieldset>
+          <fieldset class="cloud-sync-section" id="cloudSiteListPanel" hidden>
+            <legend>参加している工事</legend>
+            <div class="cloud-site-tabs"><button type="button" data-cloud-site-status="active" class="active">利用中</button><button type="button" data-cloud-site-status="closed">終了済み</button><button type="button" data-cloud-site-status="trashed">ごみ箱</button></div>
+            <div id="cloudSiteList" class="cloud-site-list"></div>
+            <p id="cloudSiteListEmpty" class="cloud-sync-help" hidden>該当する工事はありません。</p>
+          </fieldset>
+          <fieldset class="cloud-sync-section" id="cloudNonAdminNotice" hidden>
+            <legend>工事の管理</legend>
+            <p class="cloud-sync-help">工事名の変更、終了、ごみ箱、削除は管理者のみ操作できます。</p>
+            <p id="cloudAdminCodeUnavailable" class="cloud-sync-help" hidden>この工事では、別端末から管理者になるための設定がまだ完了していません。</p>
+            <div class="cloud-sync-actions"><button id="cloudOpenAdminClaim" type="button">管理者として入る</button></div>
           </fieldset>
           <div class="cloud-sync-grid">
             <div class="cloud-sync-stat">共有工事<b id="cloudSite">未接続</b></div><div class="cloud-sync-stat">権限<b id="cloudRole">−</b></div>
@@ -524,8 +550,16 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
               <div class="cloud-sync-field"><label for="cloudAdminJoinCodeConfirm">確認入力</label><input id="cloudAdminJoinCodeConfirm" type="password" minlength="8" maxlength="64" autocomplete="new-password"></div>
               <div class="cloud-sync-actions"><button id="cloudAdminRotateCode" type="button">参加コードを変更</button></div>
             </details>
-            <div class="cloud-sync-actions"><button id="cloudAdminClose" type="button">共有を終了</button><button id="cloudAdminReopen" type="button">共有を再開</button><button id="cloudAdminTrash" type="button">ごみ箱へ移動</button></div>
-            <p class="cloud-sync-help">終了しても写真と台帳は残ります。ごみ箱へ移動しても写真本体は削除されません。</p>
+            <details class="details-box" open><summary>現場管理コード</summary>
+              <p id="cloudAdminAccessStatus" class="cloud-sync-help"></p>
+              <div class="cloud-sync-field"><label for="cloudAdminAccessCode">新しい現場管理コード</label><input id="cloudAdminAccessCode" type="password" minlength="8" maxlength="64" autocomplete="new-password"></div>
+              <div class="cloud-sync-field"><label for="cloudAdminAccessCodeConfirm">確認入力</label><input id="cloudAdminAccessCodeConfirm" type="password" minlength="8" maxlength="64" autocomplete="new-password"></div>
+              <div class="cloud-sync-actions"><button id="cloudAdminAccessSave" type="button">現場管理コードを設定</button></div>
+            </details>
+            <details class="details-box" open><summary>管理者の端末</summary><div id="cloudMemberList" class="cloud-member-list"></div></details>
+            <div class="cloud-sync-actions"><button id="cloudAdminClose" type="button">工事を終了</button><button id="cloudAdminReopen" type="button">工事を再開</button><button id="cloudAdminTrash" type="button">工事をごみ箱へ移動</button><button id="cloudAdminRestore" type="button">工事を復元</button></div>
+            <p class="cloud-sync-help">工事を終了しても、写真・台帳・参加者は削除されません。</p>
+            <details class="details-box" id="cloudDeleteEmptyBox"><summary>この工事を完全に削除</summary><p class="cloud-sync-help">写真、台帳、送信データ、他の有効な参加端末がすべて0件のときだけ実行できます。</p><div class="cloud-sync-actions"><button id="cloudAdminDeleteEmpty" type="button">この工事を完全に削除</button></div></details>
           </fieldset>
           <div class="cloud-sync-field"><label for="cloudSyncMode">写真の送信</label><select id="cloudSyncMode"><option value="wifi_only">Wi-Fi時のみ（推奨）</option><option value="any_network">すべての回線</option><option value="manual">手動のみ</option></select></div>
           <div class="cloud-sync-field"><label for="cloudProject">送信する工事を選ぶ</label><select id="cloudProject"></select></div>
@@ -1916,6 +1950,6 @@ async function init(){
 }
 init().catch(e=>{document.getElementById('loading').innerHTML='<p style="color:#d9534f">起動エラー: '+e.message+'</p>'});
 </script>
-<script type="module" src="js/cloud-sync.js?v=20260727-bytefix1"></script>
+<script type="module" src="js/cloud-sync.js?v=20260729-admin-recovery1"></script>
 </body>
 </html>
