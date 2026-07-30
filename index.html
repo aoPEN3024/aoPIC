@@ -21,7 +21,8 @@
   --font:'Hiragino Kaku Gothic ProN','Hiragino Sans',sans-serif;
 }
 html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--font)}
-#app{display:flex;flex-direction:column;height:100dvh;height:100vh}
+#app{display:flex;flex-direction:column;height:100vh}
+@supports(height:100dvh){#app{height:100dvh}}
 
 .screen{display:none;flex:1;overflow:hidden;flex-direction:column}
 .screen.active{display:flex}
@@ -47,7 +48,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .bd-row2{display:flex;gap:8px;margin-bottom:4px}
 .bd-cell{flex:1;min-width:0;display:flex;gap:4px;align-items:baseline}
 .bd-lbl{font-size:8px;color:#8fbc8f;white-space:nowrap;flex-shrink:0}
-.bd-val{font-size:11px;color:#fff;font-weight:600;min-width:0;flex:1;white-space:nowrap;overflow:hidden;line-height:1.25}
+.bd-val{font-size:11px;color:#fff;font-weight:600;min-width:0;flex:1;white-space:nowrap;overflow:visible;line-height:1.25}
 .bd-koujimei .bd-val{font-size:12px}
 .bd-half{border:none;border-top:1px solid #6a9a7a;margin:6px 0 6px}
 .bd-bottom{min-height:40px;display:flex;align-items:center}
@@ -57,8 +58,9 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .bd-sketch canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .bd-sketch-ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:9px;color:#6a9a7a;pointer-events:none}
 .bd-sketch.has-ink .bd-sketch-ph{display:none}
-.bd-contractor{font-size:11px;color:#fff;font-weight:600;max-width:150px;white-space:nowrap;overflow:hidden;text-align:right}
+.bd-contractor{font-size:11px;color:#fff;font-weight:600;max-width:150px;white-space:nowrap;overflow:visible;text-align:right;line-height:1.25}
 .bd-tekiyo{font-size:15px;color:#fff;font-weight:700;line-height:1.3;word-break:break-all;white-space:pre-wrap;width:100%}
+#boardOverlay.board-fit-error{outline:2px solid #ff5b5b;outline-offset:2px}
 .tekiyo-area{resize:vertical;line-height:1.4;font-family:var(--font)}
 
 /* ハンバーガー(青赤青・透過) */
@@ -271,15 +273,25 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 #clearAllBtn{width:100%;padding:14px;background:rgba(217,83,79,.1);color:var(--danger);border:1px solid rgba(217,83,79,.3);border-radius:var(--radius);font-size:14px;font-weight:600;cursor:pointer;margin-top:8px}
 
 /* ── BOARD EDITOR (ボトムシート) ── */
-#boardEditor{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);border-radius:16px 16px 0 0;padding:16px;padding-bottom:calc(16px + var(--safe-b));transform:translateY(110%);transition:transform .3s ease;z-index:45;max-height:85dvh;max-height:85vh;overflow-y:auto}
+#boardEditorBackdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);opacity:0;pointer-events:none;transition:opacity .2s;z-index:88}
+#boardEditorBackdrop.open{opacity:1;pointer-events:auto}
+#boardEditor{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);border-radius:16px 16px 0 0;transform:translateY(110%);transition:transform .3s ease;z-index:89;max-height:calc(var(--board-editor-vh,100vh) - max(12px,var(--safe-t)));display:flex;flex-direction:column;overflow:hidden}
+@supports(height:100dvh){#boardEditor{max-height:calc(var(--board-editor-vh,100dvh) - max(12px,var(--safe-t)))}}
 #boardEditor.open{transform:translateY(0)}
-#boardEditor h3{font-size:14px;margin-bottom:12px;color:var(--accent2)}
+#boardEditor h3{font-size:14px;margin:0;color:var(--accent2)}
+.board-editor-header{padding:16px 16px 12px;flex:0 0 auto;border-bottom:1px solid var(--border)}
+.board-editor-scroll{padding:12px 16px;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;min-height:0}
+.board-editor-footer{padding:10px 16px calc(10px + var(--safe-b));flex:0 0 auto;border-top:1px solid var(--border);background:var(--surface)}
 .bed-field{margin-bottom:10px}
 .bed-label{font-size:11px;color:var(--text2);margin-bottom:4px}
 .bed-input{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 10px;font-size:14px;font-family:var(--font)}
 .bed-input:focus{outline:none;border-color:var(--accent2)}
 select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238b91a8' d='M2 4l4 4 4-4'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
-#closeBoardEditor{margin-top:8px;width:100%;padding:11px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}
+#closeBoardEditor{width:100%;min-height:48px;padding:11px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}
+#boardFitWarning{display:none;margin:0 0 8px;padding:8px 10px;border-radius:8px;background:rgba(217,83,79,.12);border:1px solid rgba(217,83,79,.38);color:var(--danger);font-size:11px;line-height:1.45}
+#boardFitWarning.show{display:block}
+body.board-editor-open{overflow:hidden}
+body.board-editor-open .field-bottom-nav{visibility:hidden;pointer-events:none}
 .bed-empty{font-size:12px;color:var(--text2);text-align:center;padding:8px;background:var(--surface2);border-radius:8px;margin-bottom:10px}
 #photoEditor{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);border-radius:16px 16px 0 0;padding:16px;padding-bottom:calc(16px + var(--safe-b));transform:translateY(110%);transition:transform .3s ease;z-index:55;max-height:88dvh;max-height:88vh;overflow-y:auto}
 #photoEditor.open{transform:translateY(0)}
@@ -311,7 +323,7 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
 .sk-toggle.on{background:var(--accent);border-color:var(--accent);color:#fff}
 .sk-open{color:var(--text)}
 .sk-open:disabled{opacity:.4}
-#sketchEditor{position:fixed;inset:0;z-index:70;background:#0b0d12;display:none;flex-direction:column;
+#sketchEditor{position:fixed;inset:0;z-index:95;background:#0b0d12;display:none;flex-direction:column;
   padding-top:var(--safe-t);padding-bottom:var(--safe-b);padding-left:var(--safe-l);padding-right:var(--safe-r)}
 #sketchEditor.open{display:flex}
 .sk-top{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0}
@@ -596,8 +608,10 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
 </nav>
 
 <!-- BOARD EDITOR -->
-<div id="boardEditor">
-  <h3>📋 黒板を編集</h3>
+<div id="boardEditorBackdrop" aria-hidden="true"></div>
+<div id="boardEditor" role="dialog" aria-modal="true" aria-labelledby="boardEditorTitle" aria-hidden="true">
+  <div class="board-editor-header"><h3 id="boardEditorTitle">📋 黒板を編集</h3></div>
+  <div class="board-editor-scroll">
   <div id="bedNoMaster" class="bed-empty" style="display:none">工事が未登録です。「工種設定」で工事を追加してください。</div>
   <div class="bed-field"><div class="bed-label">工事</div><select class="bed-input" id="sel-kouji"><option value="">（工事を選択）</option></select></div>
   <div class="bed-field"><div class="bed-label">工種</div><select class="bed-input" id="sel-koushu"><option value="">―</option></select></div>
@@ -615,7 +629,11 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
       <button id="skOpen" class="sk-open">✏️ 略図を描く</button>
     </div>
   </div>
-  <button id="closeBoardEditor">完了</button>
+  </div>
+  <div class="board-editor-footer">
+    <div id="boardFitWarning" role="status" aria-live="polite"></div>
+    <button id="closeBoardEditor">完了</button>
+  </div>
 </div>
 
 <!-- DETAIL MODAL -->
@@ -865,7 +883,7 @@ document.getElementById('openSharingSettings').addEventListener('click',()=>{
   showScreen('settingsScreen');
   requestAnimationFrame(()=>document.getElementById('cloudSyncPanel').scrollIntoView({behavior:'smooth',block:'start'}));
 });
-document.getElementById('mi-board').addEventListener('click',()=>{closeMenu();setBoardVisible(true);document.getElementById('boardEditor').classList.add('open')});
+document.getElementById('mi-board').addEventListener('click',()=>{closeMenu();setBoardVisible(true);openBoardEditor()});
 document.getElementById('mi-flip').addEventListener('click',()=>{facingMode=facingMode==='environment'?'user':'environment';startCamera();closeMenu()});
 
 // ════════ CAMERA ════════
@@ -897,11 +915,12 @@ function handleBoardTap(){
   const t=Date.now();
   if(t-lastTapHandled<60)return;   // mouseエミュレート重複防止
   lastTapHandled=t;
-  boardEditor.classList.add('open'); // タップ＝編集パネルを開く
+  openBoardEditor(); // タップ＝編集パネルを開く
 }
 function setBoardVisible(v){
   boardVisible=v;board.style.display=v?'':'none';
   const tb=document.getElementById('boardToggleBtn');if(tb)tb.classList.toggle('off',!v);
+  if(v)requestBoardTextFit('board-visible');
 }
 board.addEventListener('mousedown',e=>{if(e.target.tagName!=='INPUT'){e.preventDefault();bDown(e.clientX,e.clientY)}});
 board.addEventListener('touchstart',e=>{const t=e.touches[0];bDown(t.clientX,t.clientY)},{passive:true});
@@ -960,13 +979,42 @@ function reflowOverlays(){
   x=Math.max(g.x,Math.min(x,g.x+g.w-board.offsetWidth));
   y=Math.max(g.y,Math.min(y,g.y+g.h-board.offsetHeight));
   board.style.left=x+'px';board.style.top=y+'px';
+  requestBoardTextFit('overlay-reflow');
 }
 window.addEventListener('resize',reflowOverlays);
-window.addEventListener('orientationchange',()=>setTimeout(reflowOverlays,300));
+window.addEventListener('orientationchange',()=>setTimeout(()=>{reflowOverlays();requestBoardTextFit('orientation-change')},300));
 
 // ════════ 黒板編集 連動select ════════
 const boardEditor=document.getElementById('boardEditor');
-document.getElementById('closeBoardEditor').addEventListener('click',()=>{boardEditor.classList.remove('open');updateBoardDisplay()});
+const boardEditorBackdrop=document.getElementById('boardEditorBackdrop');
+let boardEditorReturnFocus=null;
+function updateBoardEditorViewport(){
+  const h=window.visualViewport?window.visualViewport.height:window.innerHeight;
+  if(h>0)document.documentElement.style.setProperty('--board-editor-vh',h+'px');
+}
+function openBoardEditor(){
+  boardEditorReturnFocus=document.activeElement instanceof HTMLElement?document.activeElement:null;
+  updateBoardEditorViewport();
+  boardEditor.classList.add('open');
+  boardEditorBackdrop.classList.add('open');
+  boardEditor.setAttribute('aria-hidden','false');
+  document.body.classList.add('board-editor-open');
+  requestAnimationFrame(()=>requestBoardTextFit('editor-open'));
+}
+function closeBoardEditorPanel(){
+  boardEditor.classList.remove('open');
+  boardEditorBackdrop.classList.remove('open');
+  boardEditor.setAttribute('aria-hidden','true');
+  document.body.classList.remove('board-editor-open');
+  updateBoardDisplay();
+  if(boardEditorReturnFocus&&document.contains(boardEditorReturnFocus))boardEditorReturnFocus.focus({preventScroll:true});
+}
+document.getElementById('closeBoardEditor').addEventListener('click',closeBoardEditorPanel);
+boardEditorBackdrop.addEventListener('click',closeBoardEditorPanel);
+if(window.visualViewport){
+  window.visualViewport.addEventListener('resize',()=>{updateBoardEditorViewport();requestBoardTextFit('visual-viewport')});
+  window.visualViewport.addEventListener('scroll',updateBoardEditorViewport);
+}
 const selKouji=document.getElementById('sel-kouji'),selKoushu=document.getElementById('sel-koushu'),
       selShubetsu=document.getElementById('sel-shubetsu'),selSaibetsu=document.getElementById('sel-saibetsu'),
       selSokuten=document.getElementById('sel-sokuten'),selTekiyo=document.getElementById('sel-tekiyo'),
@@ -1098,6 +1146,7 @@ function syncSketchCtrl(){skToggleBtn.classList.toggle('on',sketchOn);skOpenBtn.
 skToggleBtn.addEventListener('click',()=>{
   sketchOn=!sketchOn;localStorage.setItem('sketchOn',sketchOn?'1':'0');
   syncSketchCtrl();renderSketchPreview();requestAnimationFrame(renderSketchPreview);
+  requestBoardTextFit('sketch-toggle');
 });
 skOpenBtn.addEventListener('click',openSketchEditor);
 
@@ -1133,6 +1182,7 @@ document.getElementById('skDone').addEventListener('click',()=>{
   sketchStrokes=skWork;saveSketch();
   skEditor.classList.remove('open');
   renderSketchPreview();requestAnimationFrame(renderSketchPreview);
+  requestBoardTextFit('sketch-saved');
 });
 document.getElementById('skUndo').addEventListener('click',()=>{if(!skWork.length)return;skRedoStack.push(skWork.pop());redrawSk()});
 document.getElementById('skRedo').addEventListener('click',()=>{if(!skRedoStack.length)return;skWork.push(skRedoStack.pop());redrawSk()});
@@ -1202,28 +1252,128 @@ window.addEventListener('resize',()=>{if(skEditor.classList.contains('open'))fit
 
 // ════════ 黒板表示 ════════
 function updateBoardDisplay(){
-  fitVal('bv-koujimei',boardData.koujimei||'（未選択）',12,8,true);  // 工事名：縮小→限界で折り返し
-  fitVal('bv-koushu',boardData.koushu||'―',11,6,false);
-  fitVal('bv-sokuten',boardData.sokuten||'―',11,6,false);
-  fitVal('bv-shubetsu',boardData.shubetsu||'―',11,6,false);
-  fitVal('bv-saibetsu',boardData.saibetsu||'―',11,6,false);
-  fitTekiyo(boardData.tekiyo||'―');                                  // 摘要：大きく折り返し
-  fitVal('bv-contractor',boardData.contractor||'―',11,7,false);      // 施工者：右下
+  document.getElementById('bv-koujimei').textContent=boardData.koujimei||'（未選択）';
+  document.getElementById('bv-koushu').textContent=boardData.koushu||'―';
+  document.getElementById('bv-sokuten').textContent=boardData.sokuten||'―';
+  document.getElementById('bv-shubetsu').textContent=boardData.shubetsu||'―';
+  document.getElementById('bv-saibetsu').textContent=boardData.saibetsu||'―';
+  document.getElementById('bv-tekiyo').textContent=boardData.tekiyo||'―';
+  document.getElementById('bv-contractor').textContent=boardData.contractor||'―';
+  requestBoardTextFit('content-update');
 }
-function fitVal(id,text,baseFs,minFs,allowWrap){
-  const el=document.getElementById(id);el.textContent=text;
-  el.style.whiteSpace='nowrap';el.style.fontSize=baseFs+'px';el.style.wordBreak='';
-  if(el.clientWidth>0){
-    let fs=baseFs;
-    while(el.scrollWidth>el.clientWidth&&fs>minFs){fs-=0.5;el.style.fontSize=fs+'px'}
-    if(allowWrap&&el.scrollWidth>el.clientWidth){el.style.whiteSpace='normal';el.style.wordBreak='break-all'}
+const BOARD_FIT_DEBUG=new URLSearchParams(location.search).has('boardFitDebug');
+const BOARD_FIT_FIELDS=[
+  {id:'bv-koujimei',label:'工事名',base:12,min:8,maxLines:2},
+  {id:'bv-koushu',label:'工種',base:11,min:6,maxLines:2},
+  {id:'bv-sokuten',label:'測点',base:11,min:6,maxLines:2},
+  {id:'bv-shubetsu',label:'種別',base:11,min:6,maxLines:2},
+  {id:'bv-saibetsu',label:'細別',base:11,min:6,maxLines:2},
+  {id:'bv-contractor',label:'施工者',base:11,min:7,maxLines:2}
+];
+let boardFitFrame=0,boardFitRetry=0;
+let boardFitState={ready:false,fits:false,failures:['黒板の描画準備中です']};
+function boardFitLog(reason,state){
+  if(!BOARD_FIT_DEBUG)return;
+  const g=computeGuideRect(),r=board.getBoundingClientRect();
+  console.debug('[board-fit]',{reason,ready:state.ready,fits:state.fits,failures:state.failures.map(x=>x.label),board:[Math.round(r.width),Math.round(r.height)],guide:[Math.round(g.w),Math.round(g.h)],orientation:screen.orientation?screen.orientation.type:'unknown',standalone:matchMedia('(display-mode: standalone)').matches,sketch:sketchOn});
+}
+function fitBoardField(spec){
+  const el=document.getElementById(spec.id);
+  el.style.fontSize=spec.base+'px';
+  el.style.whiteSpace='nowrap';
+  el.style.wordBreak='normal';
+  el.style.overflowWrap='normal';
+  el.style.maxHeight='none';
+  el.style.overflow='visible';
+  if(el.clientWidth<=1)return{ready:false,fits:false,label:spec.label};
+  let fs=spec.base;
+  while(el.scrollWidth>el.clientWidth+.5&&fs>spec.min){fs=Math.max(spec.min,fs-.5);el.style.fontSize=fs+'px'}
+  if(el.scrollWidth>el.clientWidth+.5){
+    el.style.whiteSpace='normal';
+    el.style.wordBreak='break-word';
+    el.style.overflowWrap='anywhere';
+  }
+  const lineHeight=fs*1.25,maxHeight=lineHeight*spec.maxLines+.75;
+  const fits=el.scrollWidth<=el.clientWidth+1&&el.scrollHeight<=maxHeight;
+  el.dataset.fitFontSize=String(fs);
+  return{ready:true,fits,label:spec.label};
+}
+function fitBoardTekiyo(){
+  const el=document.getElementById('bv-tekiyo'),box=el.parentElement;
+  el.style.fontSize='15px';el.style.whiteSpace='pre-wrap';el.style.wordBreak='break-all';el.style.overflow='visible';
+  box.style.height='40px';box.style.overflow='visible';
+  if(box.clientWidth<=1)return{ready:false,fits:false,label:'摘要'};
+  const g=computeGuideRect();
+  const boardHeight=board.getBoundingClientRect().height,boxHeight=box.getBoundingClientRect().height;
+  const maxBoxHeight=Math.max(40,Math.min(96,g.h>0?g.h-(boardHeight-boxHeight)-8:96));
+  box.style.height=Math.min(maxBoxHeight,Math.max(40,el.scrollHeight))+'px';
+  let fs=15;
+  while((el.scrollHeight>box.clientHeight+.5||el.scrollWidth>box.clientWidth+.5)&&fs>9){fs=Math.max(9,fs-.5);el.style.fontSize=fs+'px'}
+  const fits=el.scrollHeight<=box.clientHeight+1&&el.scrollWidth<=box.clientWidth+1;
+  el.dataset.fitFontSize=String(fs);
+  return{ready:true,fits,label:'摘要'};
+}
+function showBoardFitState(state){
+  board.classList.toggle('board-fit-error',state.ready&&!state.fits);
+  const warning=document.getElementById('boardFitWarning');
+  if(state.ready&&!state.fits){
+    warning.textContent=`黒板に収まらない項目があります（${state.failures.map(x=>x.label).join('・')}）。文字を短くしてください。`;
+    warning.classList.add('show');
+  }else{
+    warning.textContent='';
+    warning.classList.remove('show');
   }
 }
-function fitTekiyo(text){
-  const el=document.getElementById('bv-tekiyo');el.textContent=text;
-  el.style.fontSize='';let fs=15;el.style.fontSize=fs+'px';
-  const box=el.parentElement;
-  if(box.clientWidth>0){while((el.scrollHeight>box.clientHeight+1||el.scrollWidth>box.clientWidth+1)&&fs>9){fs-=0.5;el.style.fontSize=fs+'px'}}
+function runBoardTextFit(reason){
+  if(!boardVisible||board.offsetParent===null){
+    boardFitState={ready:false,fits:false,failures:[{label:'黒板'}]};
+    return boardFitState;
+  }
+  const results=BOARD_FIT_FIELDS.map(fitBoardField);
+  results.push(fitBoardTekiyo());
+  const g=computeGuideRect(),r=board.getBoundingClientRect();
+  const geometryReady=g.w>1&&g.h>1&&r.width>1&&r.height>1;
+  const geometryFits=geometryReady&&r.width<=g.w+1&&r.height<=g.h+1;
+  const failures=results.filter(x=>x.ready&&!x.fits);
+  if(geometryReady&&!geometryFits)failures.push({label:'黒板全体'});
+  boardFitState={ready:geometryReady&&results.every(x=>x.ready),fits:geometryFits&&results.every(x=>x.fits),failures};
+  showBoardFitState(boardFitState);
+  boardFitLog(reason,boardFitState);
+  return boardFitState;
+}
+function requestBoardTextFit(reason){
+  if(boardFitFrame)cancelAnimationFrame(boardFitFrame);
+  boardFitFrame=requestAnimationFrame(()=>{
+    boardFitFrame=0;
+    const state=runBoardTextFit(reason);
+    if(!state.ready&&boardFitRetry<6){boardFitRetry++;requestBoardTextFit(reason+'-retry')}
+    else boardFitRetry=0;
+  });
+}
+function nextPaint(){return new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))}
+async function ensureBoardFitsForCapture(){
+  if(document.fonts&&document.fonts.ready)await Promise.race([document.fonts.ready,new Promise(resolve=>setTimeout(resolve,300))]);
+  for(let i=0;i<4;i++){
+    await nextPaint();
+    const state=runBoardTextFit('pre-shoot');
+    if(state.ready)return state.fits;
+  }
+  return false;
+}
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>requestBoardTextFit('fonts-ready'));
+video.addEventListener('loadedmetadata',()=>{reflowOverlays();requestBoardTextFit('camera-metadata')});
+video.addEventListener('loadeddata',()=>requestBoardTextFit('camera-loaded'));
+if('ResizeObserver'in window){
+  let boardResizeSignature='';
+  const boardResizeObserver=new ResizeObserver(()=>{
+    const b=board.getBoundingClientRect(),v=videoWrap.getBoundingClientRect();
+    const signature=[b.width,b.height,v.width,v.height].map(Math.round).join(':');
+    if(signature===boardResizeSignature)return;
+    boardResizeSignature=signature;
+    requestBoardTextFit('element-resize');
+  });
+  boardResizeObserver.observe(board);
+  boardResizeObserver.observe(videoWrap);
 }
 
 // ════════ SHOOT ════════
@@ -1232,6 +1382,12 @@ async function shoot(){
   if(!stream)return;
   const vt=video.videoWidth,vh=video.videoHeight;
   if(!vt||!vh){showFlash('カメラ準備中...');return}
+  if(boardVisible&&!(await ensureBoardFitsForCapture())){
+    const labels=boardFitState.failures.map(x=>x.label).join('・')||'黒板';
+    showFlash(`撮影できません。${labels}の文字を短くしてください。`,3200);
+    openBoardEditor();
+    return;
+  }
   canvas.width=vt;canvas.height=vh;const ctx=canvas.getContext('2d');ctx.drawImage(video,0,0,vt,vh);
   const vRect=video.getBoundingClientRect();
   const coverScale=Math.max(vRect.width/vt,vRect.height/vh);
@@ -1295,13 +1451,17 @@ function drawBoardToCanvas(ctx,vRect,coverScale,offX,offY){
     const bold=(parseInt(cs.fontWeight)>=600||cs.fontWeight==='bold');
     const ex=toImgX(r.left),ey=toImgY(r.top),ew=r.width/coverScale;
     ctx.fillStyle=cs.color;ctx.font=(bold?'bold ':'')+fsPx+'px sans-serif';
+    const align=cs.textAlign==='right'?'right':cs.textAlign==='center'?'center':'left';
+    const drawX=align==='right'?ex+ew:align==='center'?ex+ew/2:ex;
+    ctx.textAlign=align;
     if(cs.whiteSpace==='normal'||cs.whiteSpace==='pre-wrap'){ // 折り返し・改行あり要素
       let lines=[];
       txt.split('\n').forEach(para=>{lines=lines.concat(wrapTextLines(ctx,para,ew))}); // 明示改行→さらに幅で折返し
-      const lh=fsPx*1.3;
-      lines.forEach((ln,i)=>ctx.fillText(ln,ex,ey+i*lh));
+      const cssLineHeight=parseFloat(cs.lineHeight);
+      const lh=(Number.isFinite(cssLineHeight)?cssLineHeight:parseFloat(cs.fontSize)*1.3)/coverScale;
+      lines.forEach((ln,i)=>ctx.fillText(ln,drawX,ey+i*lh));
     }else{
-      ctx.fillText(txt,ex,ey);
+      ctx.fillText(txt,drawX,ey);
     }
   });
   // 略図（ベクターなので写真解像度で高精細に描画）
@@ -1317,7 +1477,8 @@ function drawBoardToCanvas(ctx,vRect,coverScale,offX,offY){
   }
   ctx.restore();
 }
-function showFlash(m){const e=document.getElementById('flashMsg');e.textContent=m;e.style.opacity=1;setTimeout(()=>e.style.opacity=0,1300)}
+let flashTimer=0;
+function showFlash(m,duration=1300){const e=document.getElementById('flashMsg');clearTimeout(flashTimer);e.textContent=m;e.style.opacity=1;flashTimer=setTimeout(()=>e.style.opacity=0,duration)}
 function updateCount(){document.getElementById('countBadge').textContent=photos.length+'枚'}
 
 // ════════ GALLERY ════════
