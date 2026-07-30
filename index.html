@@ -25,6 +25,16 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 
 .screen{display:none;flex:1;overflow:hidden;flex-direction:column}
 .screen.active{display:flex}
+button{font-family:var(--font);transition:background-color .16s ease,border-color .16s ease,box-shadow .16s ease,transform .08s ease,filter .16s ease}
+button:not(:disabled){cursor:pointer}
+@media(hover:hover){button:not(:disabled):hover{filter:brightness(.96);box-shadow:0 4px 12px rgba(0,0,0,.16);transform:translateY(-1px)}}
+button:not(:disabled):active{filter:brightness(.9);box-shadow:0 1px 3px rgba(0,0,0,.15);transform:translateY(1px) scale(.98)}
+button:focus-visible{outline:3px solid rgba(77,163,255,.95);outline-offset:3px}
+button:disabled{opacity:.48;cursor:not-allowed;box-shadow:none;transform:none;filter:none}
+button[aria-busy="true"]{cursor:wait}
+button[aria-busy="true"]::after{content:"";display:inline-block;width:.8em;height:.8em;margin-left:.5em;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;vertical-align:-.08em;animation:button-spin .7s linear infinite}
+@keyframes button-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){button{transition:none}button:not(:disabled):hover,button:not(:disabled):active{transform:none}button[aria-busy="true"]::after{animation:none}}
 
 /* ── CAMERA (全画面) ── */
 #camScreen{position:relative;background:#000}
@@ -227,6 +237,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .setting-group{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);margin-bottom:16px;overflow:hidden}
 .setting-row{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)}
 .setting-row:last-child{border-bottom:none}
+.setting-row-button{width:100%;text-align:left;background:var(--surface);color:var(--text);border:0;border-bottom:1px solid var(--border)}
 .setting-label{font-size:14px}
 .setting-sub{font-size:11px;color:var(--text2);margin-top:2px}
 .stat-val{font-size:18px;font-weight:700;color:var(--accent2)}
@@ -254,6 +265,11 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .cloud-sync-field{margin-top:8px}
 .cloud-sync-field label{display:block;font-size:11px;color:var(--text2);margin-bottom:4px}
 .cloud-sync-field input,.cloud-sync-field select{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px;font-family:var(--font)}
+.password-input-wrap{display:flex;align-items:stretch;gap:6px}
+.password-input-wrap input{min-width:0;flex:1}
+.password-visibility{flex:0 0 auto;padding:0 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-weight:700}
+.secret-input-meta{display:block;margin-top:4px;color:var(--text2);font-size:11px}
+.secret-input-meta.error{color:var(--danger);font-weight:700}
 .cloud-sync-progress{width:100%;margin-top:8px}
 .cloud-sync-section{min-width:0;margin:14px 0 0;padding:12px;border:1px solid var(--border);border-radius:10px}
 .cloud-sync-section legend{padding:0 6px;color:var(--accent2);font-size:13px;font-weight:700}
@@ -269,6 +285,17 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
   .field-bottom-nav button.active{background:#eaf2fc;color:var(--accent2)}
 }
 #clearAllBtn{width:100%;padding:14px;background:rgba(217,83,79,.1);color:var(--danger);border:1px solid rgba(217,83,79,.3);border-radius:var(--radius);font-size:14px;font-weight:600;cursor:pointer;margin-top:8px}
+.settings-home{display:grid;gap:10px}
+.settings-menu-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 14px;width:100%;padding:15px 16px;text-align:left;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text)}
+.settings-menu-card strong{font-size:15px}.settings-menu-card small{grid-column:1;color:var(--text2);font-size:11px;line-height:1.45}.settings-menu-card .arrow{grid-column:2;grid-row:1/3;align-self:center;color:var(--accent2);font-size:20px}
+.settings-panel[hidden],.settings-home[hidden]{display:none}
+.settings-panel-header{margin-bottom:14px}.settings-panel-header h2{margin:8px 0 5px;font-size:20px}.settings-panel-header p{margin:0;color:var(--text2);font-size:12px;line-height:1.55}
+.settings-back{padding:8px 11px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-weight:700}
+.settings-current-project{margin:10px 0;padding:9px 11px;border-radius:8px;background:var(--surface2);color:var(--text2);font-size:12px}
+.settings-panel-status{min-height:1.5em;margin:10px 0;color:var(--accent2);font-size:12px;font-weight:700;white-space:pre-wrap}.settings-panel-status.error{color:var(--danger)}
+.settings-project-list{display:grid;gap:10px}.settings-project-card{display:block;width:100%;padding:14px;text-align:left;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text)}.settings-project-card.current{border-color:var(--accent2);box-shadow:0 0 0 2px rgba(38,119,184,.15)}.settings-project-card strong{display:block;margin-bottom:6px;font-size:15px;overflow-wrap:anywhere}.settings-project-meta{display:flex;flex-wrap:wrap;gap:5px 12px;color:var(--text2);font-size:11px}.settings-project-badges{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.settings-project-badges span{padding:3px 7px;border-radius:999px;background:var(--surface2);font-size:10px;font-weight:700}
+.settings-empty{padding:24px 12px;text-align:center;color:var(--text2)}
+@media(max-width:420px){.settings-menu-card{padding:13px}.password-input-wrap{align-items:stretch}.password-visibility{padding:0 10px}}
 
 /* ── BOARD EDITOR (ボトムシート) ── */
 #boardEditor{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);border-radius:16px 16px 0 0;padding:16px;padding-bottom:calc(16px + var(--safe-b));transform:translateY(110%);transition:transform .3s ease;z-index:45;max-height:85dvh;max-height:85vh;overflow-y:auto}
@@ -396,7 +423,7 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
     <div class="back-bar">
       <button class="back-btn" data-go="camScreen">←</button>
       <span class="bb-title">写真</span>
-      <button id="dlAllBtn">書き出す</button>
+      <button id="dlAllBtn">写真を書き出す</button>
     </div>
     <div id="filterBar">
       <div class="field-actions" aria-label="写真の表示">
@@ -451,16 +478,16 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
         <div class="setting-row"><div><div class="setting-label">カメラ実解像度</div><div class="setting-sub">端末が出力できる最大値</div></div><div class="stat-val" id="statCamRes" style="font-size:13px">―</div></div>
       </div>
       <div class="setting-group">
-        <div class="setting-row"><div><div class="setting-label">登録工事数</div></div><div class="stat-val" id="statKouji">0</div></div>
+        <button type="button" class="setting-row setting-row-button" id="openRegisteredProjects"><div><div class="setting-label">登録工事数</div><div class="setting-sub">一覧を見る</div></div><div><span class="stat-val" id="statKouji">0</span> <span aria-hidden="true">›</span></div></button>
         <div class="setting-row"><div><div class="setting-label">保存写真数</div></div><div class="stat-val" id="statCount">0</div></div>
         <div class="setting-row"><div><div class="setting-label">使用容量（目安）</div></div><div class="stat-val" id="statSize">0 MB</div></div>
       </div>
-      <div class="m-section-title">書き出す</div>
+      <div class="m-section-title">工事設定を書き出す</div>
       <div class="setting-group">
         <div class="setting-row" style="display:block">
           <div class="setting-sub" style="margin:0 0 10px">工事・工種・施工者などの設定を書き出して保存したり、他の端末へ渡せます。写真は含まれません。</div>
           <div class="mb-btns">
-            <button id="mbExport">📤 書き出し（共有）</button>
+            <button id="mbExport">📤 工事設定を書き出す</button>
             <button id="mbCopy">📋 コピー</button>
             <button id="mbImport">📥 読み込み</button>
           </div>
@@ -471,6 +498,7 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
         <div class="setting-row" style="display:block">
           <div class="setting-sub" style="margin:0 0 10px">工事を選択して、写真情報をExcel対応のCSVで書き出します。</div>
           <select class="bed-input" id="csvKouji"><option value="">（工事を選択）</option></select>
+          <div class="setting-sub" id="csvTargetCount">対象写真：0枚</div>
           <button id="csvExport">📄 写真情報CSVを書き出す</button>
         </div>
       </div>
@@ -479,6 +507,7 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
         <div class="setting-row" style="display:block">
           <div class="setting-sub" style="margin:0 0 10px">写真台帳アプリaoALBへ、写真と分類情報を渡すためのZIPです。1回につき1工事を出力します。</div>
           <select class="bed-input" id="aoalbProject"><option value="">（工事を選択）</option></select>
+          <div class="setting-sub" id="aoalbTargetSummary">対象写真：0枚 / 推定容量：0 MB</div>
           <button id="aoalbExport">📦 aoALB用ZIPを作成</button>
           <div id="aoalbStatus" role="status" aria-live="polite"></div>
         </div>
@@ -493,31 +522,31 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
           <div class="cloud-sync-actions"><button id="cloudSaveConfig" type="button">工事の共有を開始</button><button id="cloudLocalMode" type="button">この端末だけで使う</button></div>
           <fieldset class="cloud-sync-section">
             <legend>新しい共有工事を作る</legend>
-            <p class="cloud-sync-help">参加コードは、他の端末をこの工事へ参加させるコードです。会社の管理コードは、社員が新しい共有工事を作るためのコードです。</p>
+            <p class="cloud-sync-help">工事ID：この工事を識別する名前<br>工事PASS：社員がこの工事に参加するときに使用<br>管理者PASS：別端末から管理者として入るときに使用<br>会社PASS：新しい共有工事を作るときに使用</p>
             <div class="cloud-sync-field"><label for="cloudCreateSiteName">工事名</label><input id="cloudCreateSiteName" maxlength="160" autocomplete="off"></div>
             <div class="cloud-sync-field"><label for="cloudCreateSiteCode">工事ID</label><input id="cloudCreateSiteCode" maxlength="40" autocomplete="off" autocapitalize="characters"></div>
-            <div class="cloud-sync-field"><label for="cloudCreateJoinCode">参加コード（8～64文字）</label><input id="cloudCreateJoinCode" type="password" minlength="8" maxlength="64" autocomplete="new-password"></div>
-            <div class="cloud-sync-field"><label for="cloudCreateJoinCodeConfirm">参加コードの確認</label><input id="cloudCreateJoinCodeConfirm" type="password" minlength="8" maxlength="64" autocomplete="new-password"></div>
-            <div class="cloud-sync-field"><label for="cloudCreateAdminCode">現場管理コード（8～64文字）</label><input id="cloudCreateAdminCode" type="password" minlength="8" maxlength="64" autocomplete="new-password"></div>
-            <div class="cloud-sync-field"><label for="cloudCreateAdminCodeConfirm">現場管理コードの確認</label><input id="cloudCreateAdminCodeConfirm" type="password" minlength="8" maxlength="64" autocomplete="new-password"></div>
-            <p class="cloud-sync-help">現場管理コードは、別の端末から管理者として入るための工事専用コードです。参加コードや会社の現場作成コードとは異なります。</p>
+            <div class="cloud-sync-field"><label for="cloudCreateJoinCode">工事PASS（8～64文字）</label><input id="cloudCreateJoinCode" type="password" minlength="8" maxlength="72" autocomplete="new-password"></div>
+            <div class="cloud-sync-field"><label for="cloudCreateJoinCodeConfirm">工事PASSの確認</label><input id="cloudCreateJoinCodeConfirm" type="password" minlength="8" maxlength="72" autocomplete="new-password"></div>
+            <div class="cloud-sync-field"><label for="cloudCreateAdminCode">管理者PASS（8～64文字）</label><input id="cloudCreateAdminCode" type="password" minlength="8" maxlength="72" autocomplete="new-password"></div>
+            <div class="cloud-sync-field"><label for="cloudCreateAdminCodeConfirm">管理者PASSの確認</label><input id="cloudCreateAdminCodeConfirm" type="password" minlength="8" maxlength="72" autocomplete="new-password"></div>
+            <p class="cloud-sync-help">管理者PASSは、別の端末から管理者として入るための工事専用PASSです。工事PASSや会社PASSとは異なります。</p>
             <details class="details-box"><summary>端末名を変更</summary><div class="cloud-sync-field"><label for="cloudCreateDeviceName">端末名</label><input id="cloudCreateDeviceName" maxlength="80" value="この端末"></div></details>
-            <div class="cloud-sync-field"><label for="cloudCreationCode">会社の管理コード</label><input id="cloudCreationCode" type="password" minlength="16" maxlength="64" autocomplete="new-password"></div>
+            <div class="cloud-sync-field"><label for="cloudCreationCode">会社PASS（16～64文字）</label><input id="cloudCreationCode" type="password" minlength="16" maxlength="72" autocomplete="new-password" aria-describedby="cloudCreationCodeHelp"><span id="cloudCreationCodeHelp" class="cloud-sync-help">新しい共有工事を作るための会社共通PASSです。入力内容は保存しません。</span></div>
             <div class="cloud-sync-actions"><button id="cloudCreateSite" class="primary" type="button">共有工事を作る</button></div>
           </fieldset>
           <fieldset class="cloud-sync-section">
             <legend>工事に参加する</legend>
-            <p class="cloud-sync-help">管理者から案内された工事IDと参加コードを入力します。</p>
+            <p class="cloud-sync-help">管理者から案内された工事IDと工事PASSを入力します。</p>
             <div class="cloud-sync-field"><label for="cloudSiteCode">工事ID</label><input id="cloudSiteCode" maxlength="40" autocomplete="off" autocapitalize="characters"></div>
-            <div class="cloud-sync-field"><label for="cloudJoinCode">参加コード</label><input id="cloudJoinCode" type="password" minlength="8" maxlength="64" autocomplete="one-time-code"></div>
+            <div class="cloud-sync-field"><label for="cloudJoinCode">工事PASS</label><input id="cloudJoinCode" type="password" minlength="8" maxlength="72" autocomplete="one-time-code"></div>
             <details class="details-box"><summary>端末名を変更</summary><div class="cloud-sync-field"><label for="cloudDeviceName">端末名</label><input id="cloudDeviceName" maxlength="80" value="この端末"></div></details>
             <div class="cloud-sync-actions"><button id="cloudJoin" class="primary" type="button">工事に参加</button></div>
           </fieldset>
           <fieldset class="cloud-sync-section">
             <legend>管理者として入る</legend>
-            <p class="cloud-sync-help">工事ごとの現場管理コードを使い、この端末を管理者として登録します。</p>
+            <p class="cloud-sync-help">工事ごとの管理者PASSを使い、この端末を管理者として登録します。</p>
             <div class="cloud-sync-field"><label for="cloudAdminClaimSiteCode">工事ID</label><input id="cloudAdminClaimSiteCode" maxlength="40" autocomplete="off" autocapitalize="characters"></div>
-            <div class="cloud-sync-field"><label for="cloudAdminClaimCode">現場管理コード</label><input id="cloudAdminClaimCode" type="password" minlength="8" maxlength="64" autocomplete="one-time-code"></div>
+            <div class="cloud-sync-field"><label for="cloudAdminClaimCode">管理者PASS</label><input id="cloudAdminClaimCode" type="password" minlength="8" maxlength="72" autocomplete="one-time-code"></div>
             <div class="cloud-sync-field"><label for="cloudAdminClaimDeviceName">この端末の名前</label><input id="cloudAdminClaimDeviceName" maxlength="80" value="この端末"></div>
             <div class="cloud-sync-actions"><button id="cloudAdminClaim" class="primary" type="button">管理者として入る</button></div>
           </fieldset>
@@ -540,21 +569,21 @@ select.bed-input{appearance:none;-webkit-appearance:none;background-image:url("d
           </div>
           <fieldset class="cloud-sync-section" id="cloudAdminPanel" hidden>
             <legend>共有工事の管理</legend>
-            <p class="cloud-sync-help">管理者だけが工事名・工事ID・参加コード・共有状態を変更できます。</p>
+            <p class="cloud-sync-help">管理者だけが工事名・工事ID・工事PASS・共有状態を変更できます。</p>
             <div class="cloud-sync-field"><label for="cloudAdminSiteName">工事名</label><input id="cloudAdminSiteName" maxlength="160"></div>
             <div class="cloud-sync-field"><label for="cloudAdminSiteCode">工事ID</label><input id="cloudAdminSiteCode" maxlength="40" autocapitalize="characters"></div>
             <div class="cloud-sync-actions"><button id="cloudAdminSave" type="button">工事情報を保存</button></div>
-            <details class="details-box"><summary>参加コードを変更</summary>
-              <p class="cloud-sync-help">変更後は旧コードが無効になります。すでに参加済みの端末はそのまま利用できます。</p>
-              <div class="cloud-sync-field"><label for="cloudAdminJoinCode">新しい参加コード</label><input id="cloudAdminJoinCode" type="password" minlength="8" maxlength="64" autocomplete="new-password"></div>
-              <div class="cloud-sync-field"><label for="cloudAdminJoinCodeConfirm">確認入力</label><input id="cloudAdminJoinCodeConfirm" type="password" minlength="8" maxlength="64" autocomplete="new-password"></div>
-              <div class="cloud-sync-actions"><button id="cloudAdminRotateCode" type="button">参加コードを変更</button></div>
+            <details class="details-box"><summary>工事PASSを変更</summary>
+              <p class="cloud-sync-help">変更後は旧PASSが無効になります。すでに参加済みの端末はそのまま利用できます。</p>
+              <div class="cloud-sync-field"><label for="cloudAdminJoinCode">新しい工事PASS</label><input id="cloudAdminJoinCode" type="password" minlength="8" maxlength="72" autocomplete="new-password"></div>
+              <div class="cloud-sync-field"><label for="cloudAdminJoinCodeConfirm">確認入力</label><input id="cloudAdminJoinCodeConfirm" type="password" minlength="8" maxlength="72" autocomplete="new-password"></div>
+              <div class="cloud-sync-actions"><button id="cloudAdminRotateCode" type="button">工事PASSを変更</button></div>
             </details>
-            <details class="details-box" open><summary>現場管理コード</summary>
+            <details class="details-box" open><summary>管理者PASS</summary>
               <p id="cloudAdminAccessStatus" class="cloud-sync-help"></p>
-              <div class="cloud-sync-field"><label for="cloudAdminAccessCode">新しい現場管理コード</label><input id="cloudAdminAccessCode" type="password" minlength="8" maxlength="64" autocomplete="new-password"></div>
-              <div class="cloud-sync-field"><label for="cloudAdminAccessCodeConfirm">確認入力</label><input id="cloudAdminAccessCodeConfirm" type="password" minlength="8" maxlength="64" autocomplete="new-password"></div>
-              <div class="cloud-sync-actions"><button id="cloudAdminAccessSave" type="button">現場管理コードを設定</button></div>
+              <div class="cloud-sync-field"><label for="cloudAdminAccessCode">新しい管理者PASS</label><input id="cloudAdminAccessCode" type="password" minlength="8" maxlength="72" autocomplete="new-password"></div>
+              <div class="cloud-sync-field"><label for="cloudAdminAccessCodeConfirm">確認入力</label><input id="cloudAdminAccessCodeConfirm" type="password" minlength="8" maxlength="72" autocomplete="new-password"></div>
+              <div class="cloud-sync-actions"><button id="cloudAdminAccessSave" type="button">管理者PASSを設定</button></div>
             </details>
             <details class="details-box" open><summary>管理者の端末</summary><div id="cloudMemberList" class="cloud-member-list"></div></details>
             <div class="cloud-sync-actions"><button id="cloudAdminClose" type="button">工事を終了</button><button id="cloudAdminReopen" type="button">工事を再開</button><button id="cloudAdminTrash" type="button">工事をごみ箱へ移動</button><button id="cloudAdminRestore" type="button">工事を復元</button></div>
@@ -844,11 +873,15 @@ async function migratePhotoRecords(){
 }
 
 // ════════ 画面遷移 ════════
-function showScreen(id){
+function showScreen(id,options={}){
   document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active',s.id===id));
   document.querySelectorAll('.field-bottom-nav [data-go]').forEach(b=>b.classList.toggle('active',b.dataset.go===id));
   if(id==='galleryScreen')renderGallery();
-  if(id==='settingsScreen')renderStats();
+  if(id==='settingsScreen'){
+    renderStats();
+    if(options.settingsPanel)activateSettingsPanel(options.settingsPanel,false);
+    else showSettingsHome(false);
+  }
   if(id==='masterScreen')renderMasters();
   closeMenu();
 }
@@ -863,7 +896,7 @@ menuOverlay.addEventListener('click',closeMenu);
 document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>showScreen(b.dataset.go)));
 document.getElementById('openSharingSettings').addEventListener('click',()=>{
   showScreen('settingsScreen');
-  requestAnimationFrame(()=>document.getElementById('cloudSyncPanel').scrollIntoView({behavior:'smooth',block:'start'}));
+  activateSettingsPanel('sharing',true);
 });
 document.getElementById('mi-board').addEventListener('click',()=>{closeMenu();setBoardVisible(true);document.getElementById('boardEditor').classList.add('open')});
 document.getElementById('mi-flip').addEventListener('click',()=>{facingMode=facingMode==='environment'?'user':'environment';startCamera();closeMenu()});
@@ -1342,7 +1375,7 @@ function renderFilterBar(){
   });
   syncDateInputs();
 }
-function updateZipCount(n){document.getElementById('dlAllBtn').textContent=`書き出す${n?` (${n})`:''}`}
+function updateZipCount(n){document.getElementById('dlAllBtn').textContent=`写真を書き出す${n?` (${n})`:''}`}
 function renderGallery(){
   renderFilterBar();
   const grid=document.getElementById('photoGrid');
@@ -1563,16 +1596,27 @@ function populateCsvKoujiSelect(){
   masters.forEach(k=>el.appendChild(opt(k.id,k.name)));
   if(photos.some(p=>!p.koujiId))el.appendChild(opt('__unassigned__','未割当（工事IDなし）'));
   if([...el.options].some(o=>o.value===prev))el.value=prev;
+  updateCsvTargetCount();
 }
+function updateCsvTargetCount(){
+  const id=document.getElementById('csvKouji').value;
+  const count=id==='__unassigned__'?photos.filter(p=>!p.koujiId).length:id?photos.filter(p=>p.koujiId===id).length:0;
+  document.getElementById('csvTargetCount').textContent=`対象写真：${count}枚`;
+}
+document.getElementById('csvKouji').addEventListener('change',updateCsvTargetCount);
 document.getElementById('csvExport').addEventListener('click',async()=>{
   const id=document.getElementById('csvKouji').value;if(!id){alert('工事を選択してください');return}
   const target=id==='__unassigned__'?photos.filter(p=>!p.koujiId):photos.filter(p=>p.koujiId===id);
   if(!target.length){alert('選択した工事の写真がありません');return}
-  const k=id==='__unassigned__'?null:findKouji(id);
-  const label=(k?k.name:'未割当').replace(/[\/\\:*?"<>|]/g,'_');
-  const name=`写真情報_${label}_${yyyymmdd(new Date())}.csv`;
-  const file=new File([buildPhotosCsv(target)],name,{type:'text/csv;charset=utf-8'});
-  await shareFiles([file],null,name);
+  const button=document.getElementById('csvExport'),labelBefore=button.textContent;button.disabled=true;button.setAttribute('aria-busy','true');button.textContent='CSV作成中…';
+  try{
+    const k=id==='__unassigned__'?null:findKouji(id);
+    const label=(k?k.name:'未割当').replace(/[\/\\:*?"<>|]/g,'_');
+    const name=`写真情報_${label}_${yyyymmdd(new Date())}.csv`;
+    const file=new File([buildPhotosCsv(target)],name,{type:'text/csv;charset=utf-8'});
+    await shareFiles([file],null,name);setSettingsStatus('csv',`${target.length}枚の写真情報CSVを作成しました`);
+  }catch(error){setSettingsStatus('csv','CSVを作成できませんでした',true)}
+  finally{button.disabled=false;button.removeAttribute('aria-busy');button.textContent=labelBefore}
 });
 
 // ════════ aoALB連携ZIP ════════
@@ -1592,7 +1636,17 @@ function populateAoalbProjectSelect(){
   const unassigned=photos.filter(isUnassignedPhoto).length;
   if(unassigned)el.appendChild(opt(AOALB_UNASSIGNED,`未割当（${unassigned}枚）`));
   if([...el.options].some(o=>o.value===prev))el.value=prev;
+  updateAoalbTargetSummary();
 }
+function updateAoalbTargetSummary(){
+  const selection=document.getElementById('aoalbProject').value;
+  let target=[];
+  if(selection===AOALB_UNASSIGNED)target=photos.filter(isUnassignedPhoto);
+  else if(selection)target=photos.filter(photo=>photo.koujiId===selection);
+  const bytes=target.reduce((sum,photo)=>sum+Number(photo.bytes||str(photo.dataUrl).length*.75||0),0);
+  document.getElementById('aoalbTargetSummary').textContent=`対象写真：${target.length}枚 / 推定容量：${(bytes/1024/1024).toFixed(1)} MB`;
+}
+document.getElementById('aoalbProject').addEventListener('change',updateAoalbTargetSummary);
 function setAoalbStatus(message,isError=false){
   const el=document.getElementById('aoalbStatus');
   el.textContent=message;el.className='show'+(isError?' err':'');
@@ -1686,7 +1740,7 @@ document.getElementById('aoalbExport').addEventListener('click',async()=>{
   if(aoalbExporting)return;
   const select=document.getElementById('aoalbProject'),button=document.getElementById('aoalbExport'),selection=select.value;
   if(!selection){setAoalbStatus('工事を選択してください',true);return}
-  aoalbExporting=true;button.disabled=true;select.disabled=true;
+  const labelBefore=button.textContent;aoalbExporting=true;button.disabled=true;button.setAttribute('aria-busy','true');button.textContent='ZIP作成中…';select.disabled=true;
   try{
     const selected=aoalbTarget(selection),project=selected.project,target=selected.photos;
     const result=await buildAoalbExport(project,target,selection===AOALB_UNASSIGNED,msg=>setAoalbStatus(msg));
@@ -1695,7 +1749,7 @@ document.getElementById('aoalbExport').addEventListener('click',async()=>{
     setAoalbStatus(`対象工事：${project.name}\n写真枚数：${target.length}\n完了：${zipName}`);
     await shareFiles([file],null,zipName);
   }catch(e){setAoalbStatus(`出力を中止しました\n${e.message}`,true)}
-  finally{aoalbExporting=false;button.disabled=false;select.disabled=false}
+  finally{aoalbExporting=false;button.disabled=false;button.removeAttribute('aria-busy');button.textContent=labelBefore;select.disabled=false}
 });
 
 // ════════ 共有(方式A: Web Share) ════════
@@ -1722,7 +1776,7 @@ async function shareFiles(files,fallbackHref,fallbackName){
 document.getElementById('dlAllBtn').addEventListener('click',async()=>{
   const target=getFilteredPhotos();
   if(!target.length){alert('対象の写真がありません');return}
-  const btn=document.getElementById('dlAllBtn');btn.textContent='生成中...';btn.disabled=true;
+  const btn=document.getElementById('dlAllBtn');btn.textContent='写真ZIP作成中…';btn.disabled=true;btn.setAttribute('aria-busy','true');
   try{
     const zip=new JSZip(),entries=makeZipEntries(target);
     entries.forEach(({photo,folderPath,fileName})=>zip.folder(folderPath).file(fileName,photo.dataUrl.split(',')[1],{base64:true}));
@@ -1732,7 +1786,7 @@ document.getElementById('dlAllBtn').addEventListener('click',async()=>{
     const zipName=`工事写真_${yyyymmdd(new Date())}.zip`;
     const file=new File([blob],zipName,{type:'application/zip'});
     await shareFiles([file],null,zipName);
-  }finally{updateZipCount(getFilteredPhotos().length);btn.disabled=false}
+  }finally{updateZipCount(getFilteredPhotos().length);btn.disabled=false;btn.removeAttribute('aria-busy')}
 });
 
 // ════════ MASTER ════════
@@ -1867,20 +1921,21 @@ function parseMastersText(text){
 }
 document.getElementById('mbExport').addEventListener('click',async()=>{
   if(!masters.length){alert('書き出す工事がありません');return}
-  const name=`aoPIC設定_${yyyymmdd(new Date())}.json`;
-  const file=new File([mastersToJSON()],name,{type:'application/json'});
-  await shareFiles([file],null,name);
+  const button=document.getElementById('mbExport'),label=button.textContent;button.disabled=true;button.setAttribute('aria-busy','true');button.textContent='書き出し中…';
+  try{const name=`aoPIC設定_${yyyymmdd(new Date())}.json`;const file=new File([mastersToJSON()],name,{type:'application/json'});await shareFiles([file],null,name);setSettingsStatus('backup','工事設定を書き出しました')}
+  catch(error){setSettingsStatus('backup','工事設定を書き出せませんでした',true)}
+  finally{button.disabled=false;button.removeAttribute('aria-busy');button.textContent=label}
 });
 document.getElementById('mbCopy').addEventListener('click',async()=>{
   if(!masters.length){alert('コピーする工事がありません');return}
-  const txt=mastersToJSON();
+  const button=document.getElementById('mbCopy'),label=button.textContent;button.disabled=true;button.setAttribute('aria-busy','true');button.textContent='コピー中…';const txt=mastersToJSON();
   try{
     await navigator.clipboard.writeText(txt);
-    alert('コピーしました。LINEやメモに貼り付けて渡せます。');
+    setSettingsStatus('backup','工事設定をコピーしました。LINEやメモに貼り付けて渡せます');
   }catch(e){
     // クリップボード非対応時：共有シートでテキストを渡す
-    try{await navigator.share({text:txt})}catch(e2){if(e2&&e2.name!=='AbortError')alert('コピーできませんでした')}
-  }
+    try{await navigator.share({text:txt});setSettingsStatus('backup','工事設定を共有しました')}catch(e2){if(e2&&e2.name!=='AbortError')setSettingsStatus('backup','コピーできませんでした',true)}
+  }finally{button.disabled=false;button.removeAttribute('aria-busy');button.textContent=label}
 });
 const importPanel=document.getElementById('importPanel'),ipText=document.getElementById('ipText'),ipInfo=document.getElementById('ipInfo');
 function ipShow(msg,isErr){ipInfo.textContent=msg;ipInfo.className='ip-info'+(isErr?' err':'');ipInfo.style.display='block'}
@@ -1914,7 +1969,145 @@ document.getElementById('ipMerge').addEventListener('click',()=>doImport(false))
 document.getElementById('ipReplace').addEventListener('click',()=>doImport(true));
 
 // ════════ SETTINGS ════════
-document.getElementById('clearAllBtn').addEventListener('click',async()=>{if(!confirm('全写真を削除します。元に戻せません。'))return;await dbClear();photos=[];updateCount();renderStats();alert('削除しました')});
+const settingsPanels=new Map();
+let activeSettingsPanel='';
+
+function settingsCurrentProjectLabel(){
+  const project=findKouji(document.getElementById('sel-kouji').value);
+  return `現在選択中の工事：${project?.name||'未選択'}`;
+}
+
+function createSettingsPanel(key,title,description,nodes=[]){
+  const panel=document.createElement('section');
+  panel.className='settings-panel';panel.dataset.settingsPanel=key;panel.hidden=true;
+  const header=document.createElement('header');header.className='settings-panel-header';
+  const back=document.createElement('button');back.type='button';back.className='settings-back';back.textContent='← 設定へ戻る';back.dataset.settingsBack='';
+  const heading=document.createElement('h2');heading.textContent=title;
+  const help=document.createElement('p');help.textContent=description;
+  const current=document.createElement('p');current.className='settings-current-project';current.dataset.settingsCurrentProject='';current.textContent=settingsCurrentProjectLabel();
+  const status=document.createElement('p');status.className='settings-panel-status';status.dataset.settingsStatus='';status.setAttribute('role','status');status.setAttribute('aria-live','polite');
+  header.append(back,heading,help,current,status);panel.append(header,...nodes);settingsPanels.set(key,panel);return panel;
+}
+
+function buildSettingsNavigation(){
+  const body=document.querySelector('#settingsScreen .screen-body');
+  const cameraGroup=document.getElementById('statCamRes').closest('.setting-group');
+  const storageGroup=document.getElementById('statKouji').closest('.setting-group');
+  const backupGroup=document.getElementById('mbExport').closest('.setting-group');
+  const csvGroup=document.getElementById('csvExport').closest('.setting-group');
+  const aoalbGroup=document.getElementById('aoalbExport').closest('.setting-group');
+  const sharingGroup=document.getElementById('cloudSyncPanel');
+  const clearButton=document.getElementById('clearAllBtn');
+  const resetWrap=document.getElementById('resetShotPos').parentElement;
+
+  const home=document.createElement('div');home.className='settings-home';home.id='settingsHome';
+  const menuItems=[
+    ['projects','登録工事','工事名・工種・測点と保存写真数を一覧で確認'],
+    ['backup','工事設定を書き出す','設定JSONの書き出し・コピー・読み込み'],
+    ['csv','写真情報CSV','工事を選び、Excel対応CSVを作成'],
+    ['aoalb','aoALB連携ZIP','写真と分類情報を台帳アプリへ渡す'],
+    ['sharing','工事を共有','共有工事の作成・参加・写真送信'],
+    ['device','端末・保存情報','カメラ解像度・工事数・写真数・使用容量'],
+    ['data','データ管理','全写真削除などの危険な操作']
+  ];
+  menuItems.forEach(([key,title,description])=>{
+    const button=document.createElement('button');button.type='button';button.className='settings-menu-card';button.dataset.settingsOpen=key;
+    const strong=document.createElement('strong');strong.textContent=title;
+    const small=document.createElement('small');small.textContent=description;
+    const arrow=document.createElement('span');arrow.className='arrow';arrow.setAttribute('aria-hidden','true');arrow.textContent='›';
+    button.append(strong,small,arrow);home.append(button);
+  });
+
+  const projectList=document.createElement('div');projectList.id='settingsProjectList';projectList.className='settings-project-list';
+  const panels=[
+    createSettingsPanel('projects','登録工事','工事を選ぶと、工種・測点を編集する工事設定画面を開きます。',[projectList]),
+    createSettingsPanel('backup','工事設定を書き出す','写真を含まない工事設定を保存・共有・読み込みできます。',[backupGroup]),
+    createSettingsPanel('csv','写真情報CSV','選択した工事の写真情報をCSVで作成します。',[csvGroup]),
+    createSettingsPanel('aoalb','aoALB連携ZIP','選択した工事の写真と分類情報をaoALB用ZIPへまとめます。',[aoalbGroup]),
+    createSettingsPanel('sharing','工事を共有','新規作成、工事への参加、管理者接続、写真送信を行います。',[sharingGroup]),
+    createSettingsPanel('device','端末・保存情報','この端末のカメラと保存データの状況を確認します。',[cameraGroup,storageGroup]),
+    createSettingsPanel('data','データ管理','削除操作は元に戻せません。対象を確認してから実行してください。',[clearButton,resetWrap])
+  ];
+  body.replaceChildren(home,...panels);
+  body.addEventListener('click',event=>{
+    const open=event.target.closest('[data-settings-open]');if(open){openSettingsPanel(open.dataset.settingsOpen);return}
+    if(event.target.closest('[data-settings-back]'))returnSettingsHome();
+  });
+  document.getElementById('openRegisteredProjects').addEventListener('click',()=>openSettingsPanel('projects'));
+}
+
+function showSettingsHome(updateHistory=true){
+  const home=document.getElementById('settingsHome');if(!home)return;
+  home.hidden=false;settingsPanels.forEach(panel=>panel.hidden=true);activeSettingsPanel='';
+  if(updateHistory&&history.state?.aoPICSettingsPanel)history.replaceState({...history.state,aoPICSettingsPanel:null},'');
+}
+
+function activateSettingsPanel(key,push=true){
+  const panel=settingsPanels.get(key);if(!panel)return;
+  document.getElementById('settingsHome').hidden=true;settingsPanels.forEach(item=>item.hidden=item!==panel);
+  activeSettingsPanel=key;renderStats();
+  if(key==='projects')renderSettingsProjectList();
+  if(push&&history.state?.aoPICSettingsPanel!==key)history.pushState({...history.state,aoPICSettingsPanel:key},'');
+  panel.querySelector('.settings-back')?.focus();
+}
+
+function openSettingsPanel(key){
+  if(!document.getElementById('settingsScreen').classList.contains('active'))showScreen('settingsScreen');
+  activateSettingsPanel(key,true);
+}
+
+function returnSettingsHome(){
+  if(history.state?.aoPICSettingsPanel)history.back();else showSettingsHome(false);
+}
+
+function setSettingsStatus(key,message,isError=false){
+  const status=settingsPanels.get(key)?.querySelector('[data-settings-status]');if(!status)return;
+  status.textContent=message||'';status.classList.toggle('error',isError);
+}
+
+function renderSettingsProjectList(){
+  const list=document.getElementById('settingsProjectList');if(!list)return;
+  if(!masters.length){const empty=document.createElement('p');empty.className='settings-empty';empty.textContent='登録工事はありません';list.replaceChildren(empty);return}
+  const selectedId=document.getElementById('sel-kouji').value;
+  const cloudState=window.aoPICCloudUiState||{};
+  list.replaceChildren(...masters.map(project=>{
+    const button=document.createElement('button');button.type='button';button.className='settings-project-card'+(project.id===selectedId?' current':'');
+    button.dataset.projectId=project.id;
+    const title=document.createElement('strong');title.textContent=project.name||'名称未設定';
+    const meta=document.createElement('div');meta.className='settings-project-meta';
+    const photoCount=photos.filter(photo=>String(photo.koujiId||'')===String(project.id)).length;
+    [`施工者：${project.contractor||'未設定'}`,`工種：${project.koushu.length}件`,`測点：${project.sokuten.length}件`,`写真：${photoCount}枚`].forEach(text=>{const span=document.createElement('span');span.textContent=text;meta.append(span)});
+    const badges=document.createElement('div');badges.className='settings-project-badges';
+    const local=document.createElement('span');local.textContent='端末内工事';badges.append(local);
+    if(project.id===selectedId){const current=document.createElement('span');current.textContent='現在選択中';badges.append(current)}
+    if(cloudState.connected&&String(cloudState.projectId||'')===String(project.id)){const shared=document.createElement('span');shared.textContent='共有工事と接続済み';badges.append(shared)}
+    button.append(title,meta,badges);
+    button.addEventListener('click',()=>{
+      const exact=findKouji(project.id);if(!exact)return;
+      document.getElementById('sel-kouji').value=exact.id;
+      document.getElementById('sel-kouji').dispatchEvent(new Event('change'));
+      openKoujiIds.add(exact.id);renderMasters();showScreen('masterScreen');
+      requestAnimationFrame(()=>document.querySelector(`.kouji-card[data-kid="${CSS.escape(exact.id)}"]`)?.scrollIntoView({block:'start'}));
+    });
+    return button;
+  }));
+}
+
+buildSettingsNavigation();
+window.addEventListener('popstate',()=>{
+  if(!document.getElementById('settingsScreen').classList.contains('active'))return;
+  const key=history.state?.aoPICSettingsPanel;
+  if(key&&settingsPanels.has(key))activateSettingsPanel(key,false);else showSettingsHome(false);
+});
+window.addEventListener('aoPIC:cloud-ui-state',()=>{if(activeSettingsPanel==='projects')renderSettingsProjectList()});
+
+document.getElementById('clearAllBtn').addEventListener('click',async()=>{
+  if(!confirm('全写真を削除します。元に戻せません。'))return;
+  const button=document.getElementById('clearAllBtn'),label=button.textContent;button.disabled=true;button.setAttribute('aria-busy','true');button.textContent='削除中…';
+  try{await dbClear();photos=[];updateCount();renderStats();setSettingsStatus('data','全写真を削除しました')}
+  catch(error){setSettingsStatus('data','写真を削除できませんでした',true)}
+  finally{button.disabled=false;button.removeAttribute('aria-busy');button.textContent=label}
+});
 function renderStats(){
   populateCsvKoujiSelect();
   populateAoalbProjectSelect();
@@ -1923,6 +2116,8 @@ function renderStats(){
   const bytes=photos.reduce((s,p)=>s+str(p.dataUrl).length*0.75,0);
   document.getElementById('statSize').textContent=(bytes/1024/1024).toFixed(1)+' MB';
   const cr=document.getElementById('statCamRes');if(cr&&video.videoWidth)cr.textContent=`${video.videoWidth}×${video.videoHeight}`;
+  document.querySelectorAll('[data-settings-current-project]').forEach(element=>element.textContent=settingsCurrentProjectLabel());
+  if(activeSettingsPanel==='projects')renderSettingsProjectList();
 }
 
 let resolveAoPICReady;
@@ -1950,6 +2145,6 @@ async function init(){
 }
 init().catch(e=>{document.getElementById('loading').innerHTML='<p style="color:#d9534f">起動エラー: '+e.message+'</p>'});
 </script>
-<script type="module" src="js/cloud-sync.js?v=20260729-admin-recovery1"></script>
+<script type="module" src="js/cloud-sync.js?v=20260729-settings-usability1"></script>
 </body>
 </html>
