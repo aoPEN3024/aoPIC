@@ -565,6 +565,20 @@ async function createProvider(config) {
           projectRow = oneOrNull(await withSyncStage("工事情報再確認", () => api(query("projects", { select: "id,project_uid", site_id: `eq.${siteId}`, project_uid: `eq.${project.projectUid}`, limit: 1 }))));
         }
       }
+      const stateRows = await withSyncStage("共有写真状態確認", () => api("/rest/v1/rpc/check_photo_upload_state", {
+        method: "POST",
+        body: { p_site_id: siteId, p_photo_uid: photo.photoUid, p_sha256: photo.sha256 }
+      }));
+      const uploadState = oneOrNull(stateRows);
+      if (uploadState?.upload_state === "trashed") {
+        throw Object.assign(
+          new Error("この写真は共有先の「削除済み」にあります。管理者が復元するまで再送しません"),
+          { code: "PHOTO_TRASHED" }
+        );
+      }
+      if (uploadState?.upload_state === "conflict") {
+        throw new Error("同じ写真識別情報が共有先の異なる写真を参照しています");
+      }
       let photoRow = oneOrNull(await withSyncStage("写真メタデータ確認", () => api(query("photos", { select: "id,project_id,photo_uid,sha256,bytes", site_id: `eq.${siteId}`, photo_uid: `eq.${photo.photoUid}`, limit: 1 }))));
       if (photoRow && (photoRow.project_id !== projectRow.id || photoRow.sha256 !== photo.sha256 || Number(photoRow.bytes) !== photo.bytes)) throw new Error("同じ写真が別の情報で登録されています");
       if (!photoRow) {
@@ -610,6 +624,7 @@ function classifyError(error) {
   if (/jwt|session|auth|sign.?in/i.test(text) || ["401", "PGRST301"].includes(code)) return { type: "auth", message: "認証の有効期限が切れました。もう一度接続してください" };
   if (/row.level|permission|policy|forbidden/i.test(text) || ["403", "42501"].includes(code)) return { type: "permission", message: "送信する権限がありません" };
   if (/quota|insufficient storage/i.test(text) || code === "507") return { type: "quota", message: "保存容量が不足しています" };
+  if (code === "PHOTO_TRASHED") return { type: "shared_deleted", message: text };
   if (/fetch|network|offline|connection/i.test(text)) return { type: "network", message: "通信に失敗しました。接続を確認してください" };
   return { type: "integrity", message: text };
 }
@@ -1090,7 +1105,11 @@ ui.resume.addEventListener("click", async () => {
 });
 ui.retry.addEventListener("click", async () => {
   const rows = await getQueue();
-  await Promise.all(rows.filter(row => row.siteId === identity?.siteId && row.status === "error").map(row => updateQueueItem(row.queueId, { status: "pending", errorType: "", lastError: "" })));
+  await Promise.all(rows.filter(row =>
+    row.siteId === identity?.siteId
+    && row.status === "error"
+    && row.errorType !== "shared_deleted"
+  ).map(row => updateQueueItem(row.queueId, { status: "pending", errorType: "", lastError: "" })));
   message("失敗した写真を送信待ちへ戻し、再送を開始しました");
   await render();
   processQueue({ manual: true });
