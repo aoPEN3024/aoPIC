@@ -160,10 +160,20 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:.8em;heigh
 .dchip-clear{background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:7px;padding:6px 10px;font-size:12px;cursor:pointer;flex-shrink:0}
 .filter-chip{flex-shrink:0;padding:5px 12px;border-radius:20px;font-size:12px;border:1px solid var(--border);color:var(--text2);cursor:pointer;background:var(--surface);white-space:nowrap}
 .filter-chip.active{background:var(--accent);border-color:var(--accent);color:#fff}
-#photoGrid{flex:1;overflow-y:auto;padding:12px;display:grid;grid-template-columns:repeat(2,1fr);gap:8px;align-content:start}
-@media (orientation:landscape){#photoGrid{grid-template-columns:repeat(4,1fr)}}
-.photo-card{background:var(--surface);border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);cursor:pointer}
-.photo-thumb{width:100%;aspect-ratio:4/3;object-fit:cover;display:block}
+#photoGrid{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:max-content;gap:8px;align-content:start;align-items:start}
+@media (orientation:landscape){#photoGrid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.photo-card{position:relative;min-width:0;height:max-content;align-self:start;background:var(--surface);border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);cursor:pointer}
+.photo-card.selected{border-color:var(--accent2);box-shadow:0 0 0 3px rgba(61,168,118,.32)}
+.photo-thumb{width:100%;height:auto;aspect-ratio:4/3;object-fit:cover;display:block;flex:none}
+.photo-select-check{position:absolute;top:8px;right:8px;width:24px;height:24px;z-index:2;accent-color:var(--accent2);filter:drop-shadow(0 1px 2px rgba(0,0,0,.7))}
+.photo-index{position:absolute;top:8px;left:8px;z-index:2;min-width:27px;padding:3px 7px;border-radius:999px;background:rgba(0,0,0,.72);color:#fff;font-size:11px;font-weight:700;text-align:center;line-height:18px}
+.gallery-selection-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--surface)}
+.gallery-selection-bar button{padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);font-size:12px;font-weight:600}
+.gallery-selection-bar #galleryBulkEdit{background:var(--accent);border-color:var(--accent);color:#fff}
+#gallerySelectedCount{margin-left:auto;color:var(--text2);font-size:12px;font-weight:600}
+#galleryActionMessage{min-height:0;margin:0;padding:0 12px;background:var(--surface);color:var(--accent2);font-size:12px;font-weight:600;line-height:1.55;white-space:pre-wrap}
+#galleryActionMessage:not(:empty){padding-top:8px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+#galleryActionMessage.error{color:var(--danger)}
 .photo-meta{padding:8px}
 .photo-type{font-size:10px;color:var(--accent2);font-weight:700;margin-bottom:2px}
 .photo-point{font-size:11px;color:var(--text);margin-bottom:2px}
@@ -458,6 +468,14 @@ body.board-editor-open .field-bottom-nav{visibility:hidden;pointer-events:none}
         <label><input type="checkbox" id="zipIncludeJson">photos.jsonを同梱</label>
       </div>
     </div>
+    <div id="gallerySelectionBar" class="gallery-selection-bar">
+      <button id="gallerySelectMode" type="button">写真を選択</button>
+      <button id="gallerySelectAll" type="button" hidden>表示中をすべて選択</button>
+      <button id="gallerySelectClear" type="button" hidden>選択解除</button>
+      <button id="galleryBulkEdit" type="button" hidden disabled>選択した写真の分類を変更</button>
+      <span id="gallerySelectedCount" hidden>選択中 0枚</span>
+    </div>
+    <p id="galleryActionMessage" role="status" aria-live="polite"></p>
     <div id="photoGrid"></div>
   </div>
 
@@ -774,6 +792,7 @@ const DB_NAME='KoujiPhoto',DB_VER=1,STORE='photos';let db;
 function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open(DB_NAME,DB_VER);r.onupgradeneeded=e=>{const d=e.target.result;if(!d.objectStoreNames.contains(STORE)){d.createObjectStore(STORE,{keyPath:'id',autoIncrement:true})}};r.onsuccess=e=>{db=e.target.result;res(db)};r.onerror=()=>rej(r.error)})}
 function dbAdd(p){return new Promise((res,rej)=>{const t=db.transaction(STORE,'readwrite');const r=t.objectStore(STORE).add(p);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
 function dbPut(p){return new Promise((res,rej)=>{const t=db.transaction(STORE,'readwrite');const r=t.objectStore(STORE).put(p);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)})}
+function dbPutMany(items){return new Promise((res,rej)=>{const t=db.transaction(STORE,'readwrite'),s=t.objectStore(STORE);items.forEach(item=>s.put(item));t.oncomplete=()=>res();t.onabort=()=>rej(t.error||new Error('写真情報を保存できませんでした'));t.onerror=()=>rej(t.error||new Error('写真情報を保存できませんでした'))})}
 function dbGetAll(){return new Promise((res,rej)=>{const t=db.transaction(STORE,'readonly');const r=t.objectStore(STORE).getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
 function dbDelete(id){return new Promise((res,rej)=>{const t=db.transaction(STORE,'readwrite');const r=t.objectStore(STORE).delete(id);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)})}
 function dbClear(){return new Promise((res,rej)=>{const t=db.transaction(STORE,'readwrite');const r=t.objectStore(STORE).clear();r.onsuccess=()=>res();r.onerror=()=>rej(r.error)})}
@@ -830,6 +849,7 @@ function findKouji(id){return masters.find(k=>k.id===id)}
 let stream=null,facingMode='environment';
 let boardData={koujiId:'',koujimei:'',koushu:'',shubetsu:'',saibetsu:'',sokuten:'',tekiyo:'',contractor:''};
 let photos=[],filterKoushu='all',detailId=null,detailList=[];
+let gallerySelectMode=false,gallerySelectedIds=new Set();
 const PHOTO_SCHEMA_VERSION=2;
 const BOARD_SNAPSHOT_FIELDS=['koujimei','contractor','koushu','shubetsu','saibetsu','sokuten','tekiyo'];
 
@@ -1537,17 +1557,29 @@ function renderFilterBar(){
   syncDateInputs();
 }
 function updateZipCount(n){document.getElementById('dlAllBtn').textContent=`写真を書き出す${n?` (${n})`:''}`}
+function renderGallerySelection(){
+  const count=gallerySelectedIds.size;
+  document.getElementById('gallerySelectMode').textContent=gallerySelectMode?'選択を終了':'写真を選択';
+  for(const id of ['gallerySelectAll','gallerySelectClear','galleryBulkEdit','gallerySelectedCount'])document.getElementById(id).hidden=!gallerySelectMode;
+  document.getElementById('galleryBulkEdit').disabled=count===0;
+  document.getElementById('gallerySelectedCount').textContent=`選択中 ${count}枚`;
+}
+function toggleGalleryPhoto(id){gallerySelectedIds.has(id)?gallerySelectedIds.delete(id):gallerySelectedIds.add(id);renderGallery()}
+function setGalleryActionMessage(message='',isError=false){const el=document.getElementById('galleryActionMessage');el.textContent=message;el.classList.toggle('error',isError)}
 function renderGallery(){
   renderFilterBar();
   const grid=document.getElementById('photoGrid');
   const list=getFilteredPhotos();
   grid.innerHTML='';
   updateZipCount(list.length);
+  renderGallerySelection();
   if(!list.length){grid.innerHTML='<div class="empty-gallery">📷 該当する写真がありません</div>';detailList=[];return}
   detailList=list.slice().reverse();
-  detailList.forEach(p=>{const d=document.createElement('div');d.className='photo-card';const dt=new Date(p.date);
+  detailList.forEach((p,index)=>{const d=document.createElement('div');d.className='photo-card'+(gallerySelectedIds.has(p.id)?' selected':'');const dt=new Date(p.date);
     d.innerHTML=`<img class="photo-thumb" src="${p.dataUrl}" loading="lazy"><div class="photo-meta"><div class="photo-type">${esc(p.koushu||'工種なし')}</div><div class="photo-point">${esc(p.sokuten||'測点なし')}</div><div class="photo-date">${fmt(dt)}</div></div>`;
-    d.addEventListener('click',()=>openDetail(p.id));grid.appendChild(d)});
+    const number=document.createElement('span');number.className='photo-index';number.textContent=String(index+1);number.setAttribute('aria-label',`写真番号 ${index+1}`);d.appendChild(number);
+    if(gallerySelectMode){const check=document.createElement('input');check.type='checkbox';check.className='photo-select-check';check.checked=gallerySelectedIds.has(p.id);check.setAttribute('aria-label','写真を選択');check.addEventListener('click',e=>{e.stopPropagation();toggleGalleryPhoto(p.id)});d.appendChild(check)}
+    d.addEventListener('click',()=>gallerySelectMode?toggleGalleryPhoto(p.id):openDetail(p.id));grid.appendChild(d)});
 }
 // フィルター固定UIのイベント（一度だけ）
 document.querySelectorAll('.fmode').forEach(b=>b.addEventListener('click',()=>{filterMode=b.dataset.mode;renderGallery()}));
@@ -1559,6 +1591,9 @@ document.getElementById('photoToday').addEventListener('click',()=>{
   filterMode='date';dateFrom=value;dateTo=value;renderGallery();
 });
 document.getElementById('photoAll').addEventListener('click',()=>{filterMode='koushu';filterKoushu='all';dateFrom='';dateTo='';renderGallery()});
+document.getElementById('gallerySelectMode').addEventListener('click',()=>{gallerySelectMode=!gallerySelectMode;if(!gallerySelectMode)gallerySelectedIds.clear();renderGallery()});
+document.getElementById('gallerySelectAll').addEventListener('click',()=>{getFilteredPhotos().forEach(p=>gallerySelectedIds.add(p.id));renderGallery()});
+document.getElementById('gallerySelectClear').addEventListener('click',()=>{gallerySelectedIds.clear();renderGallery()});
 document.getElementById('photoPending').addEventListener('click',()=>window.aoPICCloudBridge?.showSettings());
 document.getElementById('photoErrors').addEventListener('click',()=>window.aoPICCloudBridge?.showSettings());
 function fmt(d){return`${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`}
@@ -1612,7 +1647,7 @@ document.getElementById('detailDel').addEventListener('click',async()=>{if(!conf
 document.getElementById('detailModal').addEventListener('click',e=>{if(e.target===e.currentTarget)document.getElementById('detailModal').classList.remove('open')});
 
 // ════════ 写真の分類編集 ════════
-let editPhotoData={koujiId:'',koushu:'',shubetsu:'',saibetsu:'',sokuten:'',tekiyo:''},editingId=null,ledgerTouched=false,editingLedgerManual=false;
+let editPhotoData={koujiId:'',koushu:'',shubetsu:'',saibetsu:'',sokuten:'',tekiyo:''},editingId=null,editingIds=[],ledgerTouched=false,editingLedgerManual=false;
 const peKouji=document.getElementById('pe-kouji'),peKoushu=document.getElementById('pe-koushu'),
       peShubetsu=document.getElementById('pe-shubetsu'),peSaibetsu=document.getElementById('pe-saibetsu'),
       peSelSokuten=document.getElementById('pe-sel-sokuten'),peSelTekiyo=document.getElementById('pe-sel-tekiyo'),
@@ -1624,9 +1659,10 @@ function refreshLedgerPreview(){
   const ledger=generateLedger(editPhotoData);peLedgerTitle.value=ledger.title;peLedgerDescription.value=ledger.description;
 }
 
-document.getElementById('detailEdit').addEventListener('click',()=>{
-  const p=photos.find(x=>x.id===detailId);if(!p)return;
-  editingId=p.id;
+function openPhotoEditor(targetIds){
+  const targets=photos.filter(photo=>targetIds.includes(photo.id));
+  const p=targets[0];if(!p)return;
+  editingId=p.id;editingIds=targets.map(photo=>photo.id);
   const ledger=normalizeLedger(p.ledger,p);
   editPhotoData={koujiId:'',koushu:p.koushu||'',shubetsu:p.shubetsu||'',saibetsu:p.saibetsu||'',sokuten:p.sokuten||'',tekiyo:p.tekiyo||''};
   // 工事IDを優先し、既存写真は工事名が一意に一致するときだけ特定
@@ -1647,8 +1683,16 @@ document.getElementById('detailEdit').addEventListener('click',()=>{
   }
   peBuildSokuten(k,p);peBuildTekiyo(k,p);
   peLedgerTitle.value=ledger.title;peLedgerDescription.value=ledger.description;ledgerTouched=false;editingLedgerManual=ledger.manual===true;
+  const bulk=targets.length>1;
+  peLedgerTitle.disabled=bulk;peLedgerDescription.disabled=bulk;
+  document.querySelector('#photoEditor h3').textContent=bulk?`${targets.length}枚の分類を一括変更`:'写真の分類を編集';
+  document.querySelector('#photoEditor .pe-note').textContent=bulk
+    ?'選択した写真すべてを、この分類へ変更します。画像内の黒板は変更されません。手動編集済みの台帳文は保持し、それ以外は新しい分類から作り直します。共有済み写真の分類は変更されません。'
+    :'画像内の黒板は変更されません。分類情報と台帳情報のみ更新します。共有済み写真の分類は変更されません。';
   peEditor.classList.add('open');
-});
+}
+document.getElementById('detailEdit').addEventListener('click',()=>openPhotoEditor([detailId]));
+document.getElementById('galleryBulkEdit').addEventListener('click',()=>openPhotoEditor([...gallerySelectedIds]));
 function peBuildKoushu(k){peKoushu.innerHTML='';peKoushu.appendChild(opt('','―'));if(k)k.koushu.forEach((ks,i)=>peKoushu.appendChild(opt(String(i),ks.name)));document.getElementById('pe-field-shubetsu').style.display='none';document.getElementById('pe-field-saibetsu').style.display='none'}
 function peBuildShubetsu(ks){peShubetsu.innerHTML='';peShubetsu.appendChild(opt('','―'));document.getElementById('pe-field-saibetsu').style.display='none';if(ks&&ks.types.length){ks.types.forEach((tp,i)=>peShubetsu.appendChild(opt(String(i),tp.name)));document.getElementById('pe-field-shubetsu').style.display='block'}else{document.getElementById('pe-field-shubetsu').style.display='none'}}
 function peBuildSaibetsu(tp){peSaibetsu.innerHTML='';peSaibetsu.appendChild(opt('','―'));if(tp&&tp.details.length){tp.details.forEach(d=>peSaibetsu.appendChild(opt(d.name,d.name)));document.getElementById('pe-field-saibetsu').style.display='block'}else{document.getElementById('pe-field-saibetsu').style.display='none'}}
@@ -1702,17 +1746,28 @@ peLedgerDescription.addEventListener('input',()=>{ledgerTouched=true});
 [peInSokuten,peInTekiyo].forEach(el=>el.addEventListener('input',refreshLedgerPreview));
 document.getElementById('pe-cancel').addEventListener('click',()=>peEditor.classList.remove('open'));
 document.getElementById('pe-save').addEventListener('click',async()=>{
-  const p=photos.find(x=>x.id===editingId);if(!p)return;
+  const targets=photos.filter(photo=>editingIds.includes(photo.id));if(!targets.length)return;
+  const saveButton=document.getElementById('pe-save');if(saveButton.disabled)return;saveButton.disabled=true;
+  const bulk=targets.length>1;
   const k=findKouji(editPhotoData.koujiId);
-  p.schemaVersion=Math.max(Number.isInteger(p.schemaVersion)?p.schemaVersion:0,PHOTO_SCHEMA_VERSION);p.koujiId=k?k.id:'';
-  p.koujimei=k?k.name:p.koujimei;
-  p.koushu=editPhotoData.koushu;p.shubetsu=editPhotoData.shubetsu;p.saibetsu=editPhotoData.saibetsu;
-  p.sokuten=editPhotoData.sokuten;p.tekiyo=editPhotoData.tekiyo;
-  if(ledgerTouched){p.ledger={title:peLedgerTitle.value.trim(),description:peLedgerDescription.value.trim(),manual:true}}
-  else if(!p.ledger||p.ledger.manual!==true){p.ledger=generateLedger(p)}
-  await dbPut(p);photos=await dbGetAll();
-  peEditor.classList.remove('open');
-  renderGallery();openDetail(editingId);
+  const updated=targets.map(original=>{
+    const p={...original};
+    p.schemaVersion=Math.max(Number.isInteger(p.schemaVersion)?p.schemaVersion:0,PHOTO_SCHEMA_VERSION);p.koujiId=k?k.id:'';
+    p.koujimei=k?k.name:p.koujimei;
+    p.koushu=editPhotoData.koushu;p.shubetsu=editPhotoData.shubetsu;p.saibetsu=editPhotoData.saibetsu;
+    p.sokuten=editPhotoData.sokuten;p.tekiyo=editPhotoData.tekiyo;
+    if(!bulk&&ledgerTouched){p.ledger={title:peLedgerTitle.value.trim(),description:peLedgerDescription.value.trim(),manual:true}}
+    else if(!p.ledger||p.ledger.manual!==true){p.ledger=generateLedger(p)}
+    return p;
+  });
+  try{
+    await dbPutMany(updated);photos=await dbGetAll();
+    peEditor.classList.remove('open');
+    if(bulk){gallerySelectedIds.clear();gallerySelectMode=false;renderGallery()}
+    else{renderGallery();openDetail(editingId)}
+    setGalleryActionMessage('写真の整理情報を変更しました。画像内の黒板と撮影時の黒板情報は変更されません。\n共有済み写真の分類は変更されません。この端末と今後の書き出しに反映されます。');
+  }catch(error){setGalleryActionMessage(error?.message||'分類情報を保存できませんでした。写真情報は変更されていません。',true)}
+  finally{saveButton.disabled=false}
 });
 
 function buildFilename(p){const dt=new Date(p.date);const base=`${yyyymmdd(dt)}_${p.koushu||'未分類'}_${p.sokuten||''}`.replace(/[\/\\:*?"<>|]/g,'_');return base+'.jpg'}
