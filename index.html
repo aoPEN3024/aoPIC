@@ -1431,46 +1431,73 @@ if('ResizeObserver'in window){
 
 // ════════ SHOOT ════════
 const CALS_MAX_EDGE=2000;
+const PHOTO_MAX_BYTES=500*1024;
+let shooting=false;
+function canvasToJpegBlob(target,quality){
+  return new Promise((resolve,reject)=>target.toBlob(blob=>blob?resolve(blob):reject(new Error('JPEGを生成できません')),'image/jpeg',quality));
+}
+function blobToDataUrl(blob){
+  return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(reader.error||new Error('JPEGを読み込めません'));reader.readAsDataURL(blob)});
+}
+async function encodePhotoJpeg(target){
+  // Base64文字列を何度も生成せず、Blobの実サイズを正本として品質を決める。
+  const first=await canvasToJpegBlob(target,.92);
+  if(first.size<=PHOTO_MAX_BYTES)return first;
+  let low=.4,high=.92,selected=null;
+  for(let i=0;i<5;i++){
+    const quality=(low+high)/2;
+    const blob=await canvasToJpegBlob(target,quality);
+    if(blob.size<=PHOTO_MAX_BYTES){selected=blob;low=quality}else high=quality;
+  }
+  return selected||canvasToJpegBlob(target,.4);
+}
 async function shoot(){
-  if(!stream)return;
-  const vt=video.videoWidth,vh=video.videoHeight;
-  if(!vt||!vh){showFlash('カメラ準備中...');return}
-  if(boardVisible&&!(await ensureBoardFitsForCapture())){
-    const labels=boardFitState.failures.map(x=>x.label).join('・')||'黒板';
-    showFlash(`撮影できません。${labels}の文字を短くしてください。`,3200);
-    openBoardEditor();
-    return;
+  if(shooting||!stream)return;
+  shooting=true;shotBtn.disabled=true;shotBtn.setAttribute('aria-busy','true');
+  let out=null;
+  try{
+    const vt=video.videoWidth,vh=video.videoHeight;
+    if(!vt||!vh){showFlash('カメラ準備中...');return}
+    if(boardVisible&&!(await ensureBoardFitsForCapture())){
+      const labels=boardFitState.failures.map(x=>x.label).join('・')||'黒板';
+      showFlash(`撮影できません。${labels}の文字を短くしてください。`,3200);
+      openBoardEditor();
+      return;
+    }
+    const vRect=video.getBoundingClientRect();
+    const coverScale=Math.max(vRect.width/vt,vRect.height/vh);
+    const offX=(vt*coverScale-vRect.width)/2,offY=(vh*coverScale-vRect.height)/2;
+    // ガイド枠(4:3)を映像座標へ変換し、全画素Canvasを経由せず出力サイズへ直接cropする。
+    const g=computeGuideRect();
+    let cropX=(g.x+offX)/coverScale,cropY=(g.y+offY)/coverScale,cropW=g.w/coverScale,cropH=g.h/coverScale;
+    cropX=Math.max(0,Math.min(cropX,vt));cropY=Math.max(0,Math.min(cropY,vh));
+    cropW=Math.min(cropW,vt-cropX);cropH=Math.min(cropH,vh-cropY);
+    const land=g.w>=g.h;const outW=land?1280:960,outH=land?960:1280;
+    out=document.createElement('canvas');out.width=outW;out.height=outH;
+    const octx=out.getContext('2d',{alpha:false});octx.imageSmoothingEnabled=true;octx.imageSmoothingQuality='high';
+    octx.drawImage(video,cropX,cropY,cropW,cropH,0,0,outW,outH);
+    if(boardVisible){
+      octx.save();octx.scale(outW/cropW,outH/cropH);octx.translate(-cropX,-cropY);
+      drawBoardToCanvas(octx,vRect,coverScale,offX,offY);octx.restore();
+    }
+    showFlash('撮影を保存中...');
+    await new Promise(resolve=>requestAnimationFrame(resolve));
+    const jpegBlob=await encodePhotoJpeg(out);
+    const dataUrl=await blobToDataUrl(jpegBlob),bytes=jpegBlob.size;
+    const photo={schemaVersion:PHOTO_SCHEMA_VERSION,photoUid:newUuid(),koujiId:boardData.koujiId||'',dataUrl,width:outW,height:outH,bytes,megaPixel:+(outW*outH/1000000).toFixed(2),
+      koujimei:boardData.koujimei,koushu:boardData.koushu,shubetsu:boardData.shubetsu,saibetsu:boardData.saibetsu,
+      sokuten:boardData.sokuten,tekiyo:boardData.tekiyo,date:new Date().toISOString(),
+      boardSnapshot:makeBoardSnapshot(boardData)};
+    photo.ledger=generateLedger(photo);
+    photo.id=await dbAdd(photo);photos.push(photo);updateCount();
+    window.dispatchEvent(new CustomEvent('aoPIC:photo-saved',{detail:{photoUid:photo.photoUid}}));
+    showFlash(`撮影 ✓ ${outW}×${outH} / ${Math.round(bytes/1024)}KB`);
+  }catch(error){
+    showFlash('撮影を保存できませんでした。もう一度お試しください。');
+  }finally{
+    if(out){out.width=0;out.height=0}
+    shooting=false;shotBtn.disabled=false;shotBtn.removeAttribute('aria-busy');
   }
-  canvas.width=vt;canvas.height=vh;const ctx=canvas.getContext('2d');ctx.drawImage(video,0,0,vt,vh);
-  const vRect=video.getBoundingClientRect();
-  const coverScale=Math.max(vRect.width/vt,vRect.height/vh);
-  const offX=(vt*coverScale-vRect.width)/2,offY=(vh*coverScale-vRect.height)/2;
-  if(boardVisible)drawBoardToCanvas(ctx,vRect,coverScale,offX,offY);
-  // ガイド枠(4:3)を映像座標へ変換してcrop → 1280×960(横) or 960×1280(縦)
-  const g=computeGuideRect();
-  let cropX=(g.x+offX)/coverScale,cropY=(g.y+offY)/coverScale,cropW=g.w/coverScale,cropH=g.h/coverScale;
-  cropX=Math.max(0,Math.min(cropX,vt));cropY=Math.max(0,Math.min(cropY,vh));
-  cropW=Math.min(cropW,vt-cropX);cropH=Math.min(cropH,vh-cropY);
-  const land=g.w>=g.h;const outW=land?1280:960,outH=land?960:1280;
-  const out=document.createElement('canvas');out.width=outW;out.height=outH;
-  const octx=out.getContext('2d');octx.imageSmoothingQuality='high';
-  octx.drawImage(canvas,cropX,cropY,cropW,cropH,0,0,outW,outH);
-  // 500KB以下になるまでJPEG品質を下げる
-  let q=0.92,dataUrl,bytes;
-  while(true){
-    dataUrl=out.toDataURL('image/jpeg',q);
-    bytes=decodeJpegBytes(dataUrl).byteLength;
-    if(bytes<=500*1024||q<=0.4)break;
-    q-=0.04;
-  }
-  const photo={schemaVersion:PHOTO_SCHEMA_VERSION,photoUid:newUuid(),koujiId:boardData.koujiId||'',dataUrl,width:outW,height:outH,bytes,megaPixel:+(outW*outH/1000000).toFixed(2),
-    koujimei:boardData.koujimei,koushu:boardData.koushu,shubetsu:boardData.shubetsu,saibetsu:boardData.saibetsu,
-    sokuten:boardData.sokuten,tekiyo:boardData.tekiyo,date:new Date().toISOString(),
-    boardSnapshot:makeBoardSnapshot(boardData)};
-  photo.ledger=generateLedger(photo);
-  await dbAdd(photo);photos=await dbGetAll();updateCount();
-  window.dispatchEvent(new CustomEvent('aoPIC:photo-saved',{detail:{photoUid:photo.photoUid}}));
-  showFlash(`撮影 ✓ ${outW}×${outH} / ${Math.round(bytes/1024)}KB`);
 }
 function roundRect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.arcTo(x+w,y,x+w,y+r,r);ctx.lineTo(x+w,y+h-r);ctx.arcTo(x+w,y+h,x+w-r,y+h,r);ctx.lineTo(x+r,y+h);ctx.arcTo(x,y+h,x,y+h-r,r);ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);ctx.closePath()}
 
