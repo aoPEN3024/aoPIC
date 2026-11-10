@@ -2428,6 +2428,7 @@ window.aoPICCloudBridge={
   ready:aoPICReady,
   getProjects:()=>structuredClone(masters),
   getPhotos:()=>structuredClone(photos),
+  hasPhotoByUid:uid=>photos.some(photo=>photo.photoUid===uid),
   getPhotoByUid:uid=>structuredClone(photos.find(photo=>photo.photoUid===uid)||null),
   getProjectById:id=>structuredClone(masters.find(project=>String(project.id)===String(id))||null),
   showSettings:()=>showScreen('settingsScreen'),
@@ -2447,6 +2448,6 @@ async function init(){
 }
 init().catch(e=>{document.getElementById('loading').innerHTML='<p style="color:#d9534f">起動エラー: '+e.message+'</p>'});
 </script>
-<script type="module" src="js/cloud-sync.js?v=20261110-photo-sync-status1"></script>
+<script type="module" src="js/cloud-sync.js?v=20261110-orphan-sync1"></script>
 </body>
 </html>
