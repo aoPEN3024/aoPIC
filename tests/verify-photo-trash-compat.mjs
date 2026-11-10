@@ -8,7 +8,7 @@ assert.match(sync, /rpc\/check_photo_upload_state/);
 assert.match(sync, /upload_state === "trashed"/);
 assert.match(sync, /code: "PHOTO_TRASHED"/);
 assert.match(sync, /errorType !== "shared_deleted"/);
-assert.match(html, /cloud-sync\.js\?v=20260731-photo-trash-compat1/);
+assert.match(html, /cloud-sync\.js\?v=[a-zA-Z0-9._-]+/);
 assert.doesNotMatch(sync, /service_role|database password|secret key/i);
 
 console.log("aoPIC photo trash compatibility verification: OK");

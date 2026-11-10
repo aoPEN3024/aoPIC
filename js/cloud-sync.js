@@ -650,12 +650,22 @@ async function queuePhoto(photo, project, fixedIdentity) {
 
 function summarize(rows, siteId = identity?.siteId) {
   const result = { pending: 0, uploading: 0, synced: 0, error: 0, paused: 0, bytes: 0, total: 0 };
-  for (const row of rows.filter(item => !siteId || item.siteId === siteId)) {
+  for (const row of currentPhotoQueue(rows, siteId)) {
     result.total += 1;
     if (Object.hasOwn(result, row.status)) result[row.status] += 1;
     if (["pending", "error", "paused"].includes(row.status)) result.bytes += Number(row.bytes) || 0;
   }
   return result;
+}
+
+function hasLocalPhoto(row) {
+  if (!row?.photoUid) return false;
+  if (typeof bridge.hasPhotoByUid === "function") return bridge.hasPhotoByUid(row.photoUid);
+  return Boolean(bridge.getPhotoByUid(row.photoUid));
+}
+
+function currentPhotoQueue(rows, siteId = identity?.siteId) {
+  return rows.filter(item => (!siteId || item.siteId === siteId) && hasLocalPhoto(item));
 }
 
 function siteStatusLabel(value) {
@@ -784,7 +794,7 @@ async function render() {
   ui.badge.textContent = `未送信 ${summary.pending + summary.paused + summary.error}件`;
   ui.badge.classList.toggle("show", configured || summary.total > 0);
   const states = identity?.siteId
-    ? rows.filter(row => row.siteId === identity.siteId).map(row => ({
+    ? currentPhotoQueue(rows, identity.siteId).map(row => ({
         photoUid: String(row.photoUid || ""),
         status: String(row.status || ""),
         errorType: String(row.errorType || "")
@@ -849,7 +859,7 @@ async function processQueue({ manual = false } = {}) {
   if (busy || paused || !provider || !identity?.siteId || identity.role === "viewer" || ["closed","trashed"].includes(identity.siteStatus)) return;
   const currentSettings = await settings();
   const network = networkStatus();
-  const rows = (await getQueue()).filter(row => row.siteId === identity.siteId && row.status === "pending");
+  const rows = currentPhotoQueue(await getQueue(), identity.siteId).filter(row => row.status === "pending");
   if (!rows.length) return render();
   if (network === "offline") return message("オフラインのため送信できません", true);
   if (!manual) {
@@ -895,7 +905,7 @@ async function processQueue({ manual = false } = {}) {
       await render();
     }
     if (!paused) {
-      const remaining = (await getQueue()).filter(row => row.siteId === identity.siteId);
+      const remaining = currentPhotoQueue(await getQueue(), identity.siteId);
       const hasPending = remaining.some(row => row.status === "pending");
       const errorCount = remaining.filter(row => row.status === "error").length;
       if (!hasPending && errorCount > 0) {
@@ -1099,23 +1109,22 @@ ui.now.addEventListener("click", () => processQueue({ manual: true }));
 ui.pause.addEventListener("click", async () => {
   paused = true;
   const rows = await getQueue();
-  await Promise.all(rows.filter(row => row.siteId === identity?.siteId && row.status === "pending").map(row => updateQueueItem(row.queueId, { status: "paused" })));
+  await Promise.all(currentPhotoQueue(rows).filter(row => row.status === "pending").map(row => updateQueueItem(row.queueId, { status: "paused" })));
   message("写真の送信を一時停止しました。未送信の写真は端末内に保持されています");
   await render();
 });
 ui.resume.addEventListener("click", async () => {
   paused = false;
   const rows = await getQueue();
-  await Promise.all(rows.filter(row => row.siteId === identity?.siteId && row.status === "paused").map(row => updateQueueItem(row.queueId, { status: "pending" })));
+  await Promise.all(currentPhotoQueue(rows).filter(row => row.status === "paused").map(row => updateQueueItem(row.queueId, { status: "pending" })));
   message("写真の送信を再開しました。現在の通信設定に従って送信します");
   await render();
   processQueue();
 });
 ui.retry.addEventListener("click", async () => {
   const rows = await getQueue();
-  await Promise.all(rows.filter(row =>
-    row.siteId === identity?.siteId
-    && row.status === "error"
+  await Promise.all(currentPhotoQueue(rows).filter(row =>
+    row.status === "error"
     && row.errorType !== "shared_deleted"
   ).map(row => updateQueueItem(row.queueId, { status: "pending", errorType: "", lastError: "" })));
   message("失敗した写真を送信待ちへ戻し、再送を開始しました");
@@ -1153,7 +1162,7 @@ ui.adminAccessSave.addEventListener("click", () => runAdminAction(
   ui.adminAccessSave
 ));
 ui.adminClose.addEventListener("click", async () => {
-  const rows = await getQueue(), count = rows.filter(row => row.siteId === identity?.siteId && ["pending","paused","error"].includes(row.status)).length;
+  const rows = await getQueue(), count = currentPhotoQueue(rows).filter(row => ["pending","paused","error"].includes(row.status)).length;
   if (!confirm(`工事を終了すると新しい参加と写真送信が止まります。写真・台帳・参加者は削除されません。${count ? `\n送信待ちの写真が${count}件あります。` : ""}\nよろしいですか？`)) return;
   runAdminAction("工事を終了", () => provider.siteRpc("close_site", { p_site_id: identity.siteId, p_expected_revision: identity.siteRevision }), ui.adminClose);
 });
