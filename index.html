@@ -103,6 +103,14 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:.8em;heigh
   border:1px solid rgba(255,255,255,.55);background:rgba(24,85,160,.92);color:#fff;border-radius:20px;
   padding:5px 11px;font-size:11px;font-weight:700;cursor:pointer;display:none}
 #cloudQueueBadge.show{display:block}
+#cameraZoomControl{position:absolute;top:calc(58px + var(--safe-t));right:calc(14px + var(--safe-r));z-index:12;
+  width:min(174px,46vw);padding:7px 9px;border:1px solid rgba(255,255,255,.55);border-radius:12px;
+  background:rgba(0,0,0,.68);color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.28)}
+#cameraZoomControl[hidden]{display:none}
+.camera-zoom-head{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:4px;font-size:11px;font-weight:700}
+#cameraZoomWide{border:1px solid rgba(255,255,255,.55);border-radius:7px;background:rgba(255,255,255,.14);color:#fff;
+  padding:3px 7px;font:inherit;font-size:10px;font-weight:700}
+#cameraZoom{display:block;width:100%;height:24px;margin:0;accent-color:var(--accent2);touch-action:none}
 .field-bottom-nav{display:none}
 .tech-only{display:none!important}
 .details-box{margin-top:12px;border:1px solid var(--border);border-radius:10px;background:var(--surface)}
@@ -427,6 +435,10 @@ body.board-editor-open .field-bottom-nav{visibility:hidden;pointer-events:none}
     </div>
     <div id="countBadge">0枚</div>
     <button id="cloudQueueBadge" type="button" aria-label="未送信の写真">未送信 0件</button>
+    <div id="cameraZoomControl" hidden>
+      <div class="camera-zoom-head"><label for="cameraZoom">カメラ倍率 <output id="cameraZoomValue">1×</output></label><button id="cameraZoomWide" type="button">広く</button></div>
+      <input id="cameraZoom" type="range" min="1" max="1" step="0.1" value="1" aria-label="カメラ倍率">
+    </div>
     <div id="flashMsg"></div>
     <button id="boardToggleBtn" aria-label="黒板表示切替">
       <svg width="22" height="20" viewBox="0 0 22 20" xmlns="http://www.w3.org/2000/svg">
@@ -853,7 +865,7 @@ function uid(){return 'k'+Date.now().toString(36)+Math.random().toString(36).sli
 function findKouji(id){return masters.find(k=>k.id===id)}
 
 // ════════ STATE ════════
-let stream=null,facingMode='environment';
+let stream=null,facingMode='environment',cameraZoomApplyTimer=0;
 let boardData={koujiId:'',koujimei:'',koushu:'',shubetsu:'',saibetsu:'',sokuten:'',tekiyo:'',contractor:''};
 let photos=[],filterKoushu='all',detailId=null,detailList=[];
 let gallerySelectMode=false,gallerySelectedIds=new Set();
@@ -948,10 +960,46 @@ document.getElementById('mi-flip').addEventListener('click',()=>{facingMode=faci
 
 // ════════ CAMERA ════════
 const video=document.getElementById('video'),canvas=document.getElementById('canvas');
+const cameraZoomControl=document.getElementById('cameraZoomControl'),cameraZoom=document.getElementById('cameraZoom'),cameraZoomValue=document.getElementById('cameraZoomValue');
+function cameraZoomKey(){return`cameraZoom:${facingMode}`}
+function cameraZoomLabel(value){const rounded=Math.round(Number(value)*10)/10;return`${Number.isInteger(rounded)?rounded.toFixed(0):rounded.toFixed(1)}×`}
+function cameraZoomRange(track){
+  const zoom=track?.getCapabilities?.().zoom;
+  if(!zoom||!Number.isFinite(zoom.min)||!Number.isFinite(zoom.max)||zoom.max<=zoom.min)return null;
+  return{min:Number(zoom.min),max:Number(zoom.max),step:Number.isFinite(zoom.step)&&zoom.step>0?Number(zoom.step):0.1};
+}
+function setCameraZoomDisplay(value){cameraZoom.value=String(value);cameraZoomValue.value=cameraZoomLabel(value)}
+async function applyCameraZoom(value,{save=true,quiet=false}={}){
+  const track=stream?.getVideoTracks?.()[0],range=cameraZoomRange(track);if(!track||!range)return false;
+  const target=Math.max(range.min,Math.min(range.max,Number(value)));
+  try{
+    await track.applyConstraints({advanced:[{zoom:target}]});
+    const applied=Number(track.getSettings?.().zoom);setCameraZoomDisplay(Number.isFinite(applied)?applied:target);
+    if(save)localStorage.setItem(cameraZoomKey(),String(target));
+    return true;
+  }catch(_){if(!quiet)showFlash('この端末では倍率を変更できません');return false}
+}
+async function setupCameraZoom(){
+  clearTimeout(cameraZoomApplyTimer);cameraZoomControl.hidden=true;
+  try{
+    const track=stream?.getVideoTracks?.()[0],range=cameraZoomRange(track);if(!range)return;
+    cameraZoom.min=String(range.min);cameraZoom.max=String(range.max);cameraZoom.step=String(range.step);
+    const saved=Number(localStorage.getItem(cameraZoomKey()));
+    const initial=Number.isFinite(saved)&&saved>=range.min&&saved<=range.max?saved:range.min;
+    if(await applyCameraZoom(initial,{save:false,quiet:true}))cameraZoomControl.hidden=false;
+  }catch(_){cameraZoomControl.hidden=true}
+}
+cameraZoom.addEventListener('input',()=>{
+  setCameraZoomDisplay(Number(cameraZoom.value));clearTimeout(cameraZoomApplyTimer);
+  cameraZoomApplyTimer=setTimeout(()=>applyCameraZoom(Number(cameraZoom.value)),80);
+});
+cameraZoom.addEventListener('change',()=>{clearTimeout(cameraZoomApplyTimer);applyCameraZoom(Number(cameraZoom.value))});
+document.getElementById('cameraZoomWide').addEventListener('click',()=>{clearTimeout(cameraZoomApplyTimer);applyCameraZoom(Number(cameraZoom.min))});
 async function startCamera(){
+  clearTimeout(cameraZoomApplyTimer);cameraZoomControl.hidden=true;
   if(stream)stream.getTracks().forEach(t=>t.stop());
-  try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode,width:{ideal:3840},height:{ideal:2160}},audio:false});video.srcObject=stream}
-  catch(e){try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode},audio:false});video.srcObject=stream}catch(e2){alert('カメラを起動できませんでした: '+e2.message)}}
+  try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode,width:{ideal:3840},height:{ideal:2160}},audio:false});video.srcObject=stream;await setupCameraZoom()}
+  catch(e){try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode},audio:false});video.srcObject=stream;await setupCameraZoom()}catch(e2){alert('カメラを起動できませんでした: '+e2.message)}}
 }
 
 // ════════ 4:3 ガイド枠 ════════
@@ -2448,6 +2496,6 @@ async function init(){
 }
 init().catch(e=>{document.getElementById('loading').innerHTML='<p style="color:#d9534f">起動エラー: '+e.message+'</p>'});
 </script>
-<script type="module" src="js/cloud-sync.js?v=20261110-orphan-sync1"></script>
+<script type="module" src="js/cloud-sync.js?v=20261111-camera-zoom1"></script>
 </body>
 </html>

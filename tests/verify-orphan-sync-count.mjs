@@ -7,7 +7,7 @@ const helperSource = source.match(/function summarize[\s\S]*?(?=function siteSta
 
 assert.ok(helperSource, "queue summary helpers must be present");
 assert.match(index, /hasPhotoByUid:uid=>photos\.some\(/);
-assert.match(index, /cloud-sync\.js\?v=20261110-orphan-sync1/);
+assert.match(index, /cloud-sync\.js\?v=20261111-camera-zoom1/);
 
 const existing = new Set(["photo-pending", "photo-error", "photo-synced"]);
 const bridge = {
