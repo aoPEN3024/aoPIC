@@ -783,6 +783,14 @@ async function render() {
   ui.adminClaim.disabled = siteActionBusy || !provider;
   ui.badge.textContent = `未送信 ${summary.pending + summary.paused + summary.error}件`;
   ui.badge.classList.toggle("show", configured || summary.total > 0);
+  const states = identity?.siteId
+    ? rows.filter(row => row.siteId === identity.siteId).map(row => ({
+        photoUid: String(row.photoUid || ""),
+        status: String(row.status || ""),
+        errorType: String(row.errorType || "")
+      }))
+    : [];
+  window.dispatchEvent(new CustomEvent("aoPIC:sync-status-changed", { detail: { states } }));
   const admin = configured && identity?.role === "admin";
   ui.adminPanel.hidden = !admin;
   ui.nonAdminNotice.hidden = !configured || admin;

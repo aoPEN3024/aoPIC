@@ -110,6 +110,7 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:.8em;heigh
 .details-box[open]>summary{border-bottom:1px solid var(--border)}
 .field-actions{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
 .field-actions button{flex:1 1 130px;padding:10px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);font-weight:700}
+.field-actions button.active{background:var(--accent);border-color:var(--accent);color:#fff}
 .share-heading{font-size:18px;font-weight:800;margin:8px 0 4px}
 .share-status{padding:10px 12px;border-radius:9px;background:var(--surface2);font-size:12px;line-height:1.55}
 #flashMsg{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:13;
@@ -167,6 +168,11 @@ button[aria-busy="true"]::after{content:"";display:inline-block;width:.8em;heigh
 .photo-thumb{width:100%;height:auto;aspect-ratio:4/3;object-fit:cover;display:block;flex:none}
 .photo-select-check{position:absolute;top:8px;right:8px;width:24px;height:24px;z-index:2;accent-color:var(--accent2);filter:drop-shadow(0 1px 2px rgba(0,0,0,.7))}
 .photo-index{position:absolute;top:8px;left:8px;z-index:2;min-width:27px;padding:3px 7px;border-radius:999px;background:rgba(0,0,0,.72);color:#fff;font-size:11px;font-weight:700;text-align:center;line-height:18px}
+.photo-sync-badge{position:absolute;left:8px;bottom:52px;z-index:2;padding:4px 8px;border-radius:999px;background:rgba(0,0,0,.78);color:#fff;font-size:10px;font-weight:700;line-height:1.2;box-shadow:0 1px 3px rgba(0,0,0,.35)}
+.photo-sync-badge.pending,.photo-sync-badge.paused{background:rgba(217,169,58,.94);color:#17120a}
+.photo-sync-badge.uploading{background:rgba(77,163,255,.94)}
+.photo-sync-badge.error{background:rgba(217,83,79,.96)}
+.photo-sync-badge.synced{background:rgba(46,125,94,.94)}
 .gallery-selection-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--surface)}
 .gallery-selection-bar button{padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);font-size:12px;font-weight:600}
 .gallery-selection-bar #galleryBulkEdit{background:var(--accent);border-color:var(--accent);color:#fff}
@@ -697,6 +703,7 @@ body.board-editor-open .field-bottom-nav{visibility:hidden;pointer-events:none}
     <div class="detail-row"><span class="detail-key">台帳説明</span><span class="detail-val" id="dm-ledger-description"></span></div>
     <div class="detail-row"><span class="detail-key">画素数</span><span class="detail-val" id="dm-pixel"></span></div>
     <div class="detail-row"><span class="detail-key">撮影日時</span><span class="detail-val" id="dm-date"></span></div>
+    <div class="detail-row"><span class="detail-key">共有状態</span><span class="detail-val" id="dm-sync"></span></div>
     <div id="detailWarning">⚠️ 画像内の黒板は変更されません</div>
   </div>
   <button id="detailEdit" class="detail-edit-btn">✏️ 分類を編集</button>
@@ -1562,10 +1569,33 @@ function showFlash(m,duration=1300){const e=document.getElementById('flashMsg');
 function updateCount(){document.getElementById('countBadge').textContent=photos.length+'枚'}
 
 // ════════ GALLERY ════════
-let filterMode='koushu',dateFrom='',dateTo='';
+let filterMode='koushu',dateFrom='',dateTo='',syncFilter='all';
+const photoSyncStates=new Map();
+const SYNC_STATUS_META={
+  pending:{label:'送信待ち',className:'pending'},paused:{label:'一時停止中',className:'paused'},
+  uploading:{label:'送信中',className:'uploading'},error:{label:'送信失敗',className:'error'},
+  synced:{label:'送信済み',className:'synced'}
+};
+const SYNC_ERROR_LABELS={
+  permission:'送信する権限を確認してください',quota:'共有先の保存容量を確認してください',
+  network:'通信状態を確認してください',auth:'共有接続を確認してください',
+  interrupted:'前回の送信が中断されました',integrity:'写真または工事情報を確認してください'
+};
+function photoSyncState(photo){return photoSyncStates.get(String(photo?.photoUid||''))||null}
+function pendingSyncState(state){return state&&['pending','paused','uploading'].includes(state.status)}
+function syncStatusText(state){
+  if(!state)return'この端末だけに保存';
+  const label=SYNC_STATUS_META[state.status]?.label||'状態を確認できません';
+  const reason=SYNC_ERROR_LABELS[state.errorType]||'';
+  return reason&&state.status!=='synced'?`${label}（${reason}）`:label;
+}
 function getFilteredPhotos(){
-  if(filterMode==='koushu')return filterKoushu==='all'?photos:photos.filter(p=>p.koushu===filterKoushu);
-  return photos.filter(p=>{const d=p.date.slice(0,10);if(dateFrom&&d<dateFrom)return false;if(dateTo&&d>dateTo)return false;return true});
+  let list=filterMode==='koushu'
+    ?(filterKoushu==='all'?photos:photos.filter(p=>p.koushu===filterKoushu))
+    :photos.filter(p=>{const d=p.date.slice(0,10);if(dateFrom&&d<dateFrom)return false;if(dateTo&&d>dateTo)return false;return true});
+  if(syncFilter==='pending')list=list.filter(p=>pendingSyncState(photoSyncState(p)));
+  if(syncFilter==='error')list=list.filter(p=>photoSyncState(p)?.status==='error');
+  return list;
 }
 function chip(label,active,onclick){const c=document.createElement('div');c.className='filter-chip'+(active?' active':'');c.textContent=label;c.addEventListener('click',onclick);return c}
 function fmtDay(d){const[y,m,da]=d.split('-');return`${+m}/${+da}`}
@@ -1593,36 +1623,64 @@ function renderGallerySelection(){
 }
 function toggleGalleryPhoto(id){gallerySelectedIds.has(id)?gallerySelectedIds.delete(id):gallerySelectedIds.add(id);renderGallery()}
 function setGalleryActionMessage(message='',isError=false){const el=document.getElementById('galleryActionMessage');el.textContent=message;el.classList.toggle('error',isError)}
+function updateSyncFilterButtons(){
+  const pending=photos.filter(p=>pendingSyncState(photoSyncState(p))).length;
+  const errors=photos.filter(p=>photoSyncState(p)?.status==='error').length;
+  const pendingButton=document.getElementById('photoPending'),errorButton=document.getElementById('photoErrors');
+  pendingButton.textContent=`送信待ち${pending?` (${pending})`:''}`;
+  errorButton.textContent=`送信できなかった写真${errors?` (${errors})`:''}`;
+  pendingButton.classList.toggle('active',syncFilter==='pending');
+  errorButton.classList.toggle('active',syncFilter==='error');
+}
 function renderGallery(){
   renderFilterBar();
+  updateSyncFilterButtons();
   const grid=document.getElementById('photoGrid');
   const list=getFilteredPhotos();
   grid.innerHTML='';
   updateZipCount(list.length);
   renderGallerySelection();
-  if(!list.length){grid.innerHTML='<div class="empty-gallery">📷 該当する写真がありません</div>';detailList=[];return}
+  if(!list.length){
+    const empty=syncFilter==='error'?'送信できなかった写真はありません':syncFilter==='pending'?'送信待ちの写真はありません':'該当する写真がありません';
+    grid.innerHTML=`<div class="empty-gallery">📷 ${empty}</div>`;detailList=[];return;
+  }
   detailList=list.slice().reverse();
   detailList.forEach((p,index)=>{const d=document.createElement('div');d.className='photo-card'+(gallerySelectedIds.has(p.id)?' selected':'');const dt=new Date(p.date);
     d.innerHTML=`<img class="photo-thumb" src="${p.dataUrl}" loading="lazy"><div class="photo-meta"><div class="photo-type">${esc(p.koushu||'工種なし')}</div><div class="photo-point">${esc(p.sokuten||'測点なし')}</div><div class="photo-date">${fmt(dt)}</div></div>`;
     const number=document.createElement('span');number.className='photo-index';number.textContent=String(index+1);number.setAttribute('aria-label',`写真番号 ${index+1}`);d.appendChild(number);
+    const syncState=photoSyncState(p),syncMeta=syncState&&SYNC_STATUS_META[syncState.status];
+    if(syncMeta){const badge=document.createElement('span');badge.className=`photo-sync-badge ${syncMeta.className}`;badge.textContent=syncMeta.label;badge.setAttribute('aria-label',`共有状態 ${syncStatusText(syncState)}`);d.appendChild(badge)}
     if(gallerySelectMode){const check=document.createElement('input');check.type='checkbox';check.className='photo-select-check';check.checked=gallerySelectedIds.has(p.id);check.setAttribute('aria-label','写真を選択');check.addEventListener('click',e=>{e.stopPropagation();toggleGalleryPhoto(p.id)});d.appendChild(check)}
     d.addEventListener('click',()=>gallerySelectMode?toggleGalleryPhoto(p.id):openDetail(p.id));grid.appendChild(d)});
 }
 // フィルター固定UIのイベント（一度だけ）
-document.querySelectorAll('.fmode').forEach(b=>b.addEventListener('click',()=>{filterMode=b.dataset.mode;renderGallery()}));
+document.querySelectorAll('.fmode').forEach(b=>b.addEventListener('click',()=>{syncFilter='all';filterMode=b.dataset.mode;setGalleryActionMessage();renderGallery()}));
 document.getElementById('dateFrom').addEventListener('change',e=>{dateFrom=e.target.value;renderGallery()});
 document.getElementById('dateTo').addEventListener('change',e=>{dateTo=e.target.value;renderGallery()});
 document.getElementById('dateClear').addEventListener('click',()=>{dateFrom='';dateTo='';renderGallery()});
 document.getElementById('photoToday').addEventListener('click',()=>{
   const today=new Date(),value=`${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
-  filterMode='date';dateFrom=value;dateTo=value;renderGallery();
+  syncFilter='all';filterMode='date';dateFrom=value;dateTo=value;setGalleryActionMessage();renderGallery();
 });
-document.getElementById('photoAll').addEventListener('click',()=>{filterMode='koushu';filterKoushu='all';dateFrom='';dateTo='';renderGallery()});
+document.getElementById('photoAll').addEventListener('click',()=>{syncFilter='all';filterMode='koushu';filterKoushu='all';dateFrom='';dateTo='';setGalleryActionMessage();renderGallery()});
 document.getElementById('gallerySelectMode').addEventListener('click',()=>{gallerySelectMode=!gallerySelectMode;if(!gallerySelectMode)gallerySelectedIds.clear();renderGallery()});
 document.getElementById('gallerySelectAll').addEventListener('click',()=>{getFilteredPhotos().forEach(p=>gallerySelectedIds.add(p.id));renderGallery()});
 document.getElementById('gallerySelectClear').addEventListener('click',()=>{gallerySelectedIds.clear();renderGallery()});
-document.getElementById('photoPending').addEventListener('click',()=>window.aoPICCloudBridge?.showSettings());
-document.getElementById('photoErrors').addEventListener('click',()=>window.aoPICCloudBridge?.showSettings());
+document.getElementById('photoPending').addEventListener('click',()=>{
+  syncFilter=syncFilter==='pending'?'all':'pending';filterMode='koushu';filterKoushu='all';dateFrom='';dateTo='';
+  setGalleryActionMessage(syncFilter==='pending'?'送信待ちの写真を表示しています。送信操作は「設定」→「工事共有」から行えます。':'');renderGallery();
+});
+document.getElementById('photoErrors').addEventListener('click',()=>{
+  syncFilter=syncFilter==='error'?'all':'error';filterMode='koushu';filterKoushu='all';dateFrom='';dateTo='';
+  setGalleryActionMessage(syncFilter==='error'?'送信できなかった写真を表示しています。写真を開くと原因を確認できます。再送は「設定」→「工事共有」から行えます。':'',syncFilter==='error');renderGallery();
+});
+window.addEventListener('aoPIC:sync-status-changed',event=>{
+  photoSyncStates.clear();
+  const states=Array.isArray(event.detail?.states)?event.detail.states:[];
+  states.forEach(state=>{if(state&&isValidUuid(state.photoUid)&&SYNC_STATUS_META[state.status])photoSyncStates.set(state.photoUid,{status:state.status,errorType:String(state.errorType||'')})});
+  updateSyncFilterButtons();
+  if(document.getElementById('galleryScreen').classList.contains('active'))renderGallery();
+});
 function fmt(d){return`${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`}
 function pad(n){return String(n).padStart(2,'0')}
 function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
@@ -1647,6 +1705,7 @@ function openDetail(id){
   const ok=okSize&&okBytes;
   document.getElementById('dm-pixel').innerHTML=(p.width?pxText:'―')+(p.width?(ok?' <span style="color:#3da876">✓CALS適合</span>':' <span style="color:#d9a93a">▲要確認</span>'):'');
   document.getElementById('dm-date').textContent=fmt(new Date(p.date));
+  document.getElementById('dm-sync').textContent=syncStatusText(photoSyncState(p));
   document.getElementById('detailWarning').style.display=hasBoardMismatch(p)?'block':'none';
   document.getElementById('detailModal').classList.add('open');
 }
@@ -2388,6 +2447,6 @@ async function init(){
 }
 init().catch(e=>{document.getElementById('loading').innerHTML='<p style="color:#d9534f">起動エラー: '+e.message+'</p>'});
 </script>
-<script type="module" src="js/cloud-sync.js?v=20260731-photo-trash-compat1"></script>
+<script type="module" src="js/cloud-sync.js?v=20261110-photo-sync-status1"></script>
 </body>
 </html>
